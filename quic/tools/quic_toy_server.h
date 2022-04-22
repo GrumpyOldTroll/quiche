@@ -6,6 +6,7 @@
 #define QUICHE_QUIC_TOOLS_QUIC_TOY_SERVER_H_
 
 #include "quic/core/crypto/proof_source.h"
+#include "quic/tools/quic_pusher.h"
 #include "quic/tools/quic_simple_server_backend.h"
 #include "quic/tools/quic_spdy_server_base.h"
 
@@ -44,9 +45,21 @@ class QuicToyServer {
     std::unique_ptr<quic::QuicSimpleServerBackend> CreateBackend() override;
   };
 
+  class PusherFactory {
+   public:
+    virtual ~PusherFactory() = default;
+
+    virtual std::unique_ptr<quic::QuicPusher> CreatePusher(
+        std::string multicast_upstream,
+        QuicSpdyServerBase* server) = 0;
+  };
+
   // Constructs a new toy server that will use |server_factory| to create the
   // actual QuicSpdyServerBase instance.
-  QuicToyServer(BackendFactory* backend_factory, ServerFactory* server_factory);
+  QuicToyServer(
+      BackendFactory* backend_factory,
+      ServerFactory* server_factory,
+      PusherFactory* pusher_factory);
 
   // Connects to the QUIC server based on the various flags defined in the
   // .cc file, listends for requests and sends the responses. Returns 1 on
@@ -56,6 +69,7 @@ class QuicToyServer {
  private:
   BackendFactory* backend_factory_;  // Unowned.
   ServerFactory* server_factory_;    // Unowned.
+  PusherFactory* pusher_factory_;    // Unowned.
 };
 
 }  // namespace quic

@@ -9,6 +9,7 @@
 
 #include "quic/core/quic_versions.h"
 #include "quic/platform/api/quic_flags.h"
+#include "quic/tools/quic_epoll_pusher_factory.h"
 #include "quic/tools/quic_epoll_server_factory.h"
 #include "quic/tools/quic_toy_server.h"
 #include "common/platform/api/quiche_command_line_flags.h"
@@ -26,6 +27,7 @@ int main(int argc, char* argv[]) {
 
   quic::QuicToyServer::MemoryCacheBackendFactory backend_factory;
   quic::QuicEpollServerFactory server_factory;
-  quic::QuicToyServer server(&backend_factory, &server_factory);
+  quic::QuicEpollPusherFactory pusher_factory;
+  quic::QuicToyServer server(&backend_factory, &server_factory, &pusher_factory);
   return server.Start();
 }
