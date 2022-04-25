@@ -14,9 +14,14 @@ namespace quic {
 // Factory creating QuicPusher instances.
 class QuicEpollPusherFactory : public QuicToyServer::PusherFactory {
  public:
+  explicit QuicEpollPusherFactory(
+      QuicEpollServer* epoll_server_);
+
   std::unique_ptr<QuicPusher> CreatePusher(
       std::string multicast_upstream,
       QuicSpdyServerBase* server) override;
+ private:
+  QuicEpollServer* epoll_server_;  // unowned
 };
 
 }  // namespace quic

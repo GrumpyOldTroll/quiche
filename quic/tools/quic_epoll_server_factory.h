@@ -13,13 +13,16 @@ namespace quic {
 // Factory creating QuicServer instances.
 class QuicEpollServerFactory : public QuicToyServer::ServerFactory {
  public:
+  explicit QuicEpollServerFactory(
+      QuicEpollServer* epoll_server);
+
   std::unique_ptr<QuicSpdyServerBase> CreateServer(
       QuicSimpleServerBackend* backend,
       std::unique_ptr<ProofSource> proof_source,
       const quic::ParsedQuicVersionVector& supported_versions) override;
 
  private:
-  QuicEpollServer epoll_server_;
+  QuicEpollServer *epoll_server_;  // unowned
 };
 
 }  // namespace quic

@@ -44,20 +44,24 @@ const char kSourceAddressTokenSecret[] = "secret";
 const size_t kNumSessionsToCreatePerSocketEvent = 16;
 
 QuicServer::QuicServer(std::unique_ptr<ProofSource> proof_source,
-                       QuicSimpleServerBackend* quic_simple_server_backend)
+                       QuicSimpleServerBackend* quic_simple_server_backend,
+                       QuicEpollServer* epoll_server)
     : QuicServer(std::move(proof_source),
                  quic_simple_server_backend,
-                 AllSupportedVersions()) {}
+                 AllSupportedVersions(),
+                 epoll_server) {}
 
 QuicServer::QuicServer(std::unique_ptr<ProofSource> proof_source,
                        QuicSimpleServerBackend* quic_simple_server_backend,
-                       const ParsedQuicVersionVector& supported_versions)
+                       const ParsedQuicVersionVector& supported_versions,
+                       QuicEpollServer* epoll_server)
     : QuicServer(std::move(proof_source),
                  QuicConfig(),
                  QuicCryptoServerConfig::ConfigOptions(),
                  supported_versions,
                  quic_simple_server_backend,
-                 kQuicDefaultConnectionIdLength) {}
+                 kQuicDefaultConnectionIdLength,
+                 epoll_server) {}
 
 QuicServer::QuicServer(
     std::unique_ptr<ProofSource> proof_source,
@@ -65,8 +69,10 @@ QuicServer::QuicServer(
     const QuicCryptoServerConfig::ConfigOptions& crypto_config_options,
     const ParsedQuicVersionVector& supported_versions,
     QuicSimpleServerBackend* quic_simple_server_backend,
-    uint8_t expected_server_connection_id_length)
-    : port_(0),
+    uint8_t expected_server_connection_id_length,
+    QuicEpollServer* epoll_server)
+    : epoll_server_(*epoll_server),
+      port_(0),
       fd_(-1),
       packets_dropped_(0),
       overflow_supported_(false),

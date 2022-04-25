@@ -16,12 +16,15 @@
 
 namespace quic {
 
+class QuicServer;
+
 // Factory creating QuicPusher instances.
 class QuicEpollPipePusher : public QuicPusher,
                             public QuicEpollCallbackInterface {
  public:
   QuicEpollPipePusher(
       std::string path_base,
+      QuicEpollServer* epoll_server,
       QuicSpdyServerBase* server);
 
   ~QuicEpollPipePusher() override;
@@ -46,8 +49,8 @@ class QuicEpollPipePusher : public QuicPusher,
   std::vector<uint8_t> parse_buf_;
   size_t filled_len_;
   int topcmd_fd_;
-  QuicSpdyServerBase* server_;  // unowned.
   QuicEpollServer* epoll_server_;  // unowned.
+  QuicSpdyServerBase* server_;  // unowned.
   unsigned int event_count_;
 };
 

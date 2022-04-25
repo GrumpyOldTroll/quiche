@@ -60,12 +60,13 @@ namespace quic {
 
 QuicEpollPipePusher::QuicEpollPipePusher(
     std::string path_base,
+    QuicEpollServer* epoll_server,
     QuicSpdyServerBase* server)
     : path_base_(path_base),
       filled_len_(0),
       topcmd_fd_(-1),
+      epoll_server_(epoll_server),
       server_(server),
-      epoll_server_(0),
       event_count_(0) {}
 
 QuicEpollPipePusher::~QuicEpollPipePusher() {
@@ -74,29 +75,6 @@ QuicEpollPipePusher::~QuicEpollPipePusher() {
 
 bool QuicEpollPipePusher::Initialize() {
   QUIC_LOG(INFO) << "Initialize(" << path_base_ << ")";
-
-  // TODO: can't use dynamic cast, this is not the right thing to do.
-  // (error: use of dynamic_cast requires -frtti)
-  // The right thing is probably for epoll_server to be passed into both
-  // QuicServer and this object, rather than being owned by QuicServer.
-  // An easier but worse hack would be to add a null epoll_server virtual
-  // function to QuicSpdyServerBase to expose the override to pull it out.
-  // In practice today QuicEpollPipePusher is used when and only when the
-  // server is actually a QuicServer, so this is fragile but safe for the
-  // moment (I think?  At least when building epoll_quic_server...)
-  // --jake 2022-04
-  // QuicServer* server = dynamic_cast<QuicServer*>(server_);
-  QuicServer* server = static_cast<QuicServer*>(server_);
-  if (!server) {
-    QUIC_LOG(ERROR) << "Cannot extract EpollServer from server";
-    return false;
-  }
-
-  epoll_server_ = server->epoll_server();
-  if (!epoll_server_) {
-    QUIC_LOG(ERROR) << "Null EpollServer from QuicServer";
-    return false;
-  }
 
   mode_t old_mask = umask(S_IRWXG|S_IRWXO);
   mode_t check_mask = umask(S_IRWXG|S_IRWXO);
