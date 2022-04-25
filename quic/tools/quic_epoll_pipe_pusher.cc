@@ -4,13 +4,14 @@
 
 #include "quic/tools/quic_epoll_pipe_pusher.h"
 
-#include <utility>
 #include <errno.h>
 #include <unistd.h>
 #include <sys/types.h>
 #include <sys/stat.h>
 #include <sys/fcntl.h>
 #include <features.h>
+#include <algorithm>
+#include <utility>
 
 #include "quic/platform/api/quic_logging.h"
 #include "quic/tools/quic_server.h"
@@ -257,13 +258,16 @@ void QuicEpollPipePusher::OnEvent(int fd, QuicEpollEvent* event) {
       << "EPOLLIN(" << top_path_ << ")";
     enum {
       kBufsize = 1024*16,
+      kMinReadSpace = 1024*4,
       kLoopLimit = 5,
       kBufStopLimit = 1024*1024,
       kCommandLimit = 10,
     };
     int loopcount = 0;
-    if (parse_buf_.size() < filled_len_ + kBufsize) {
-      parse_buf_.resize(filled_len_ + kBufsize);
+
+    size_t minbufsize = std::max((size_t)kBufsize, (size_t)(filled_len_ + kMinReadSpace));
+    if (parse_buf_.size() < minbufsize) {
+      parse_buf_.resize(minbufsize);
     }
     ssize_t len;
     while (loopcount < kLoopLimit && filled_len_ <= kBufStopLimit) {
@@ -278,38 +282,50 @@ void QuicEpollPipePusher::OnEvent(int fd, QuicEpollEvent* event) {
         Shutdown();
         return;
       }
-      filled_len_ += len;
-      if ((size_t)len < parse_buf_.size()) {
+      if (len == 0) {
         break;
       }
+      filled_len_ += len;
       loopcount += 1;
     }
 
-    ssize_t consumed = 0;
+    size_t consumed = 0;
     ssize_t just_ate = 0;
     QuicPushParseErrorCode err = kQPP_NoError;
     QuicPushCommandBase::CommandArgs args;
     args.server = (QuicServer*)server_;
-    while (err == kQPP_NoError) {
+    while (consumed < filled_len_ && err == kQPP_NoError) {
       just_ate = 0;
       auto push_cmd = ParsePushCommand(parse_buf_.size() - consumed,
           &parse_buf_[consumed], just_ate, err);
       if (!push_cmd) {
-        if (just_ate < 0) {
-          // TODO: move current data to front, make sure there's more than -just_ate space, and read more if we've got any
-          break;
-        }
+        QUIC_LOG(WARNING) << "no command parsed from " << filled_len_ << " bbytes at offset " << consumed << " (" << just_ate << " output as consumed)";
         break;
       }
+      QUIC_LOG(WARNING) << "command parsed from " << filled_len_ << " bytes at offset " << consumed << " consuming " << just_ate;
       // assert(just_ate > 0);
       consumed += just_ate;
       push_cmd->RunCommand(args);
     }
-    parse_buf_.clear();  // just because I'm tired but want to try it once --jake 2022-04-22 3:52am
+    if (consumed > filled_len_) {
+      QUIC_LOG(ERROR) << "internal error: consumed(" << consumed << ") more bytes than were available(" << filled_len_ << ")";
+      Shutdown();
+      return;
+    }
+    if (consumed == filled_len_) {
+      QUIC_LOG(WARNING) << "full read of " << consumed << " consumed";
+      filled_len_ = 0;
+    } else {
+      QUIC_LOG(WARNING) << "partial read of " << consumed << " consumed with " << (filled_len_-consumed) << " left";
+      memmove(&parse_buf_[0], &parse_buf_[consumed], filled_len_-consumed);
+      filled_len_ -= consumed;
+    }
+    minbufsize = std::max((size_t)kBufsize, filled_len_);
+    if (parse_buf_.size() > minbufsize) {
+      parse_buf_.resize(minbufsize);
+    }
   }
 #endif  // TEMP_QPUSH_BEFORE_COMMANDS
-  (void)filled_len_;
-  (void)parse_buf_;
   if (refire) {
     event->out_ready_mask |= EPOLLIN;
   }
