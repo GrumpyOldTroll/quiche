@@ -20,6 +20,10 @@ namespace {
 
 const char kTopPath[] = "/top-cmd";
 
+enum {
+  kDefaultReadBufsize = 1024*16,
+};
+
 std::string get_strerror(int got_err) {
   enum {
     kMaxStrErrorSize = 256
@@ -40,7 +44,7 @@ std::string get_strerror(int got_err) {
 #endif
 }
 
-#if TEMP_QPUSH_BEFORE_COMMANDS
+/*
 std::size_t stringstream_buffersize(const std::stringstream& ss) {
   std::streambuf* buf = ss.rdbuf();
   std::streampos pos = buf->pubseekoff(0, std::ios_base::cur, std::ios_base::in);
@@ -48,7 +52,7 @@ std::size_t stringstream_buffersize(const std::stringstream& ss) {
   buf->pubseekpos(pos, std::ios_base::in);
   return end - pos;
 }
-#endif
+*/
 
 }  // namespace
 
@@ -145,27 +149,59 @@ void QuicEpollPipePusher::Shutdown() {
       int got_err = errno;
       QUIC_LOG(ERROR) << "error(" << got_err <<") unlinking \"" << top_path_ << "\": " << get_strerror(got_err);
     }
-    topcmd_buf_.clear();
+    filled_len_ = 0;
   }
 }
 
 bool QuicEpollPipePusher::RunBufferedCommands() {
-  // TODO: read full commands from the stream and execute them (if
-  // partial command, put it back in the stream).
   enum {
-    kCommandLimit = 5
+    kCommandLimit = 10
   };
   int commands = 0;
-  std::string cmd;
-  while (topcmd_buf_ >> cmd && commands < kCommandLimit) {
-    QUIC_LOG(WARNING) << "Read from cmd buf: \"" << cmd << "\"";
+  // TODO: maybe a time limit is better than a command count limit?  Or
+  //       do we need both?  --jake 2022-04-24
+
+  size_t consumed = 0;
+  ssize_t just_ate = 0;
+  QuicPushParseErrorCode err = kQPP_NoError;
+  QuicPushCommandBase::CommandArgs args;
+  args.server = (QuicServer*)server_;
+  while (consumed < filled_len_ && err == kQPP_NoError && commands < kCommandLimit) {
+    just_ate = 0;
+    auto push_cmd = ParsePushCommand(parse_buf_.size() - consumed,
+        &parse_buf_[consumed], just_ate, err);
+    if (!push_cmd) {
+      QUIC_LOG(WARNING) << "no command parsed from " << filled_len_ << " bbytes at offset " << consumed << " (" << just_ate << " output as consumed)";
+      break;
+    }
+    QUIC_LOG(WARNING) << "command parsed from " << filled_len_ << " bytes at offset " << consumed << " consuming " << just_ate;
+    // assert(just_ate > 0);
+    consumed += just_ate;
     commands += 1;
+    push_cmd->RunCommand(args);
   }
-  if (!topcmd_buf_ || topcmd_buf_.eof()) {
-    topcmd_buf_.clear();
+  if (consumed > filled_len_) {
+    QUIC_LOG(ERROR) << "internal error: consumed(" << consumed << ") more bytes than were available(" << filled_len_ << ")";
+    Shutdown();
+    return false;
+  }
+  if (consumed == filled_len_) {
+    QUIC_LOG(WARNING) << "full read of " << consumed << " consumed";
+    filled_len_ = 0;
+  } else {
+    QUIC_LOG(WARNING) << "partial read of " << consumed << " consumed with " << (filled_len_-consumed) << " left";
+    memmove(&parse_buf_[0], &parse_buf_[consumed], filled_len_-consumed);
+    filled_len_ -= consumed;
+  }
+  size_t minbufsize = std::max((size_t)kDefaultReadBufsize, filled_len_);
+  if (parse_buf_.size() > minbufsize) {
+    parse_buf_.resize(minbufsize);
   }
 
-  if (commands >= kCommandLimit) {
+  if (filled_len_ > 0 && just_ate > 0 && err == kQPP_NoError) {
+    // we have more data and we might have more commands to parse.
+    // yield to avoid blocking other things but schedule another entry
+    // immediately.
     return true;
   }
   return false;
@@ -190,82 +226,18 @@ void QuicEpollPipePusher::OnEvent(int fd, QuicEpollEvent* event) {
   event->out_ready_mask = 0;
   event_count_ += 1;
 
-#if TEMP_QPUSH_BEFORE_COMMANDS
-  // currently disabled
-#if 1
   if (event->in_events & EPOLLIN) {
     //QUIC_DVLOG(1) 
     QUIC_LOG(WARNING)
       << "EPOLLIN(" << top_path_ << ")";
     enum {
-      kBufsize = 1024*16,
-      kLoopLimit = 5,
-      kBufStopLimit = 1024*1024
-    };
-    char buf[kBufsize];
-    ssize_t len;
-    int loopcount = 0;
-    ssize_t cur_size = stringstream_buffersize(topcmd_buf_);
-
-    while (loopcount < kLoopLimit && cur_size <= kBufStopLimit) {
-      loopcount += 1;
-      len = read(fd, buf, sizeof(buf));
-      if (len < 0) {
-        int got_err = errno;
-        if (got_err == EAGAIN || got_err == EWOULDBLOCK) {
-          len = 0;
-          break;
-        }
-        QUIC_LOG(ERROR) << "error(" << got_err <<") reading from fifo \"" << top_path_ << "\": " << get_strerror(got_err) << ", shutting down";
-        Shutdown();
-        return;
-      }
-      if (len == 0) {
-        break;
-      }
-      topcmd_buf_.write(buf, len);
-      cur_size += len;
-    }
-    if (cur_size > kBufStopLimit) {
-      QUIC_LOG(ERROR) << "exceeded max command buffer size for " << top_path_ << ", shutting down";
-      Shutdown();
-      return;
-    }
-    ssize_t post_size = stringstream_buffersize(topcmd_buf_);
-    if (cur_size != post_size) {
-      QUIC_LOG(ERROR) << "cur_size(" << cur_size <<") != post_size(" << post_size <<"); bad stringstream_buffersize";
-    } else {
-      QUIC_LOG(WARNING) << "cur_size(" << cur_size <<") == post_size(" << post_size <<"); good stringstream_buffersize";
-    }
-
-    // set this if for some reason we are yielding but want another
-    // callback right away without waiting for an actual socket write:
-    if (loopcount == kLoopLimit && len != 0) {
-      event->out_ready_mask |= EPOLLIN;
-    }
-  }
-  bool refire = RunBufferedCommands();
-  ssize_t remaining_size = stringstream_buffersize(topcmd_buf_);
-  if (remaining_size > 0) {
-    QUIC_LOG(WARNING) << "remaining_size(" << remaining_size <<") after command processing";
-  }
-#endif  // 0
-#else  // TEMP_QPUSH_BEFORE_COMMANDS
-  bool refire = false;
-  if (event->in_events & EPOLLIN) {
-    //QUIC_DVLOG(1) 
-    QUIC_LOG(WARNING)
-      << "EPOLLIN(" << top_path_ << ")";
-    enum {
-      kBufsize = 1024*16,
       kMinReadSpace = 1024*4,
       kLoopLimit = 5,
       kBufStopLimit = 1024*1024,
-      kCommandLimit = 10,
     };
     int loopcount = 0;
 
-    size_t minbufsize = std::max((size_t)kBufsize, (size_t)(filled_len_ + kMinReadSpace));
+    size_t minbufsize = std::max((size_t)kDefaultReadBufsize, (size_t)(filled_len_ + kMinReadSpace));
     if (parse_buf_.size() < minbufsize) {
       parse_buf_.resize(minbufsize);
     }
@@ -288,44 +260,8 @@ void QuicEpollPipePusher::OnEvent(int fd, QuicEpollEvent* event) {
       filled_len_ += len;
       loopcount += 1;
     }
-
-    size_t consumed = 0;
-    ssize_t just_ate = 0;
-    QuicPushParseErrorCode err = kQPP_NoError;
-    QuicPushCommandBase::CommandArgs args;
-    args.server = (QuicServer*)server_;
-    while (consumed < filled_len_ && err == kQPP_NoError) {
-      just_ate = 0;
-      auto push_cmd = ParsePushCommand(parse_buf_.size() - consumed,
-          &parse_buf_[consumed], just_ate, err);
-      if (!push_cmd) {
-        QUIC_LOG(WARNING) << "no command parsed from " << filled_len_ << " bbytes at offset " << consumed << " (" << just_ate << " output as consumed)";
-        break;
-      }
-      QUIC_LOG(WARNING) << "command parsed from " << filled_len_ << " bytes at offset " << consumed << " consuming " << just_ate;
-      // assert(just_ate > 0);
-      consumed += just_ate;
-      push_cmd->RunCommand(args);
-    }
-    if (consumed > filled_len_) {
-      QUIC_LOG(ERROR) << "internal error: consumed(" << consumed << ") more bytes than were available(" << filled_len_ << ")";
-      Shutdown();
-      return;
-    }
-    if (consumed == filled_len_) {
-      QUIC_LOG(WARNING) << "full read of " << consumed << " consumed";
-      filled_len_ = 0;
-    } else {
-      QUIC_LOG(WARNING) << "partial read of " << consumed << " consumed with " << (filled_len_-consumed) << " left";
-      memmove(&parse_buf_[0], &parse_buf_[consumed], filled_len_-consumed);
-      filled_len_ -= consumed;
-    }
-    minbufsize = std::max((size_t)kBufsize, filled_len_);
-    if (parse_buf_.size() > minbufsize) {
-      parse_buf_.resize(minbufsize);
-    }
   }
-#endif  // TEMP_QPUSH_BEFORE_COMMANDS
+  bool refire = RunBufferedCommands();
   if (refire) {
     event->out_ready_mask |= EPOLLIN;
   }
