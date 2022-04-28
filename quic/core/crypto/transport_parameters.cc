@@ -1235,6 +1235,11 @@ bool SerializeTransportParameters(ParsedQuicVersion /*version*/,
           }
         }
       } break;
+      case TransportParameters::kMulticastClientParams: {
+        if (in.multicast_client_params.has_value()){
+          printf("\n Got multicast parameters set. \n");
+        }
+      } break;
       // Custom parameters and GREASE.
       default: {
         auto it = custom_parameters.find(parameter_id);

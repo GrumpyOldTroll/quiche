@@ -290,7 +290,7 @@ int QuicToyClient::SendRequestsAndPrintResponses(
   std::string connection_options_string = GetQuicFlag(FLAGS_connection_options);
 
   if (GetQuicFlag(FLAGS_multicast)) {
-    //config.multicast_client_params_ = NULL;
+    config.SetMulticastParams();
   }
   if (!connection_options_string.empty()) {
     config.SetConnectionOptionsToSend(

@@ -512,16 +512,7 @@ class QUIC_EXPORT_PRIVATE QuicConfig {
     return received_custom_transport_parameters_;
   }
 
-  void SetMulticastParams(    
-    bool permitIPv4,
-    bool permitIPv6,
-    //TODO: Use proper types/variable length integers
-    int maxAggregateRate,
-    int maxSessionIDs,
-    int hashAlgorithmsSupported,
-    int aeadAlgorithmsSupported,
-    std::vector<uint8_t> hashAlgorithmsList,
-    std::vector<uint8_t> aeadAlgorithmsList);
+  void SetMulticastParams();
 
  private:
   friend class test::QuicConfigPeer;

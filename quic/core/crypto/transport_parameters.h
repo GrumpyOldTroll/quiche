@@ -121,10 +121,11 @@ struct QUIC_EXPORT_PRIVATE TransportParameters {
     //AEAD Algorithms List (16 * AEAD Algorithms Supported)
   //}
   struct QUIC_EXPORT_PRIVATE  MulticastClientParams {
-    // I do not know what any of this does...
+    // Overloaded operators
     MulticastClientParams();
     MulticastClientParams(const MulticastClientParams& other) = default;
-    MulticastClientParams(MulticastClientParams&& other) = default;
+    // Allows for copying which is probably not optimal...
+    //MulticastClientParams(MulticastClientParams&& other) = default;
     ~MulticastClientParams();
     bool operator==(const MulticastClientParams& rhs) const;
     bool operator!=(const MulticastClientParams& rhs) const;
