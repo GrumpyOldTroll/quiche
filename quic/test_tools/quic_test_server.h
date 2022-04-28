@@ -90,6 +90,8 @@ class QuicTestServer : public QuicServer {
   // Sets a custom crypto stream factory, owned by the caller, for easy custom
   // crypto logic.  This is incompatible with setting a session factory.
   void SetCryptoStreamFactory(CryptoStreamFactory* factory);
+
+  QuicEpollServer test_epoll_server_;
 };
 
 // Useful test sessions for the QuicTestServer.

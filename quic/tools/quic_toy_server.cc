@@ -12,10 +12,17 @@
 #include "quic/platform/api/quic_flags.h"
 #include "quic/platform/api/quic_socket_address.h"
 #include "quic/tools/quic_memory_cache_backend.h"
+#include "quic/tools/quic_pusher.h"
 #include "common/platform/api/quiche_command_line_flags.h"
 
 DEFINE_QUICHE_COMMAND_LINE_FLAG(int32_t, port, 6121,
                                 "The port the quic server will listen on.");
+
+DEFINE_QUICHE_COMMAND_LINE_FLAG(
+    std::string, quic_multicast_upstream, "",
+    "Specifies multicast support (draft-jholland-quic-multicast) and "
+    "designates the source for data push commands, either 'root:<path>' "
+    "or '<host>:<port>'");
 
 DEFINE_QUICHE_COMMAND_LINE_FLAG(
     std::string, quic_response_cache_dir, "",
@@ -59,8 +66,11 @@ QuicToyServer::MemoryCacheBackendFactory::CreateBackend() {
 }
 
 QuicToyServer::QuicToyServer(BackendFactory* backend_factory,
-                             ServerFactory* server_factory)
-    : backend_factory_(backend_factory), server_factory_(server_factory) {}
+                             ServerFactory* server_factory,
+                             PusherFactory* pusher_factory)
+    : backend_factory_(backend_factory),
+      server_factory_(server_factory),
+      pusher_factory_(pusher_factory) {}
 
 int QuicToyServer::Start() {
   ParsedQuicVersionVector supported_versions;
@@ -86,10 +96,15 @@ int QuicToyServer::Start() {
   for (const auto& version : supported_versions) {
     QuicEnableVersion(version);
   }
+  std::string multicast_upstream = GetQuicFlag(FLAGS_quic_multicast_upstream);
   auto proof_source = quic::CreateDefaultProofSource();
   auto backend = backend_factory_->CreateBackend();
   auto server = server_factory_->CreateServer(
       backend.get(), std::move(proof_source), supported_versions);
+  auto pusher = pusher_factory_->CreatePusher(multicast_upstream, server.get());
+  if (!multicast_upstream.empty() && !pusher.get()) {
+    return 1;
+  }
 
   if (!server->CreateUDPSocketAndListen(quic::QuicSocketAddress(
           quic::QuicIpAddress::Any6(), GetQuicFlag(FLAGS_port)))) {

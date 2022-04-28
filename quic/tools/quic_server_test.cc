@@ -57,7 +57,8 @@ class TestQuicServer : public QuicServer {
  public:
   TestQuicServer()
       : QuicServer(crypto_test_utils::ProofSourceForTesting(),
-                   &quic_simple_server_backend_) {}
+                   &quic_simple_server_backend_,
+                   &epoll_server_) {}
 
   ~TestQuicServer() override = default;
 
@@ -80,6 +81,7 @@ class TestQuicServer : public QuicServer {
 
   MockQuicSimpleDispatcher* mock_dispatcher_ = nullptr;
   QuicMemoryCacheBackend quic_simple_server_backend_;
+  QuicEpollServer epoll_server_;
 };
 
 class QuicServerEpollInTest : public QuicTest {
