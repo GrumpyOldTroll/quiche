@@ -65,6 +65,8 @@ enum TransportParameters::TransportParameterId : uint64_t {
 
   kMinAckDelay = 0xDE1A,           // draft-iyengar-quic-delayed-ack.
   kVersionInformation = 0xFF73DB,  // draft-ietf-quic-version-negotiation.
+
+  kMulticastClientParams = 0xff3e800,   // multicast draft
 };
 
 namespace {
@@ -129,6 +131,8 @@ std::string TransportParameterIdToString(
       return "min_ack_delay_us";
     case TransportParameters::kVersionInformation:
       return "version_information";
+    case TransportParameters::kMulticastClientParams:
+      return "multicast_client_params";
   }
   return absl::StrCat("Unknown(", param_id, ")");
 }
@@ -159,6 +163,7 @@ bool TransportParameterIdIsKnown(
     case TransportParameters::kGoogleQuicVersion:
     case TransportParameters::kMinAckDelay:
     case TransportParameters::kVersionInformation:
+    case TransportParameters::kMulticastClientParams:
       return true;
   }
   return false;
@@ -306,6 +311,45 @@ std::string TransportParameters::PreferredAddress::ToString() const {
          "]";
 }
 
+TransportParameters::MulticastClientParams::MulticastClientParams()
+    : permitIPv4(false),
+      permitIPv6(false), 
+      maxAggregateRate(0),
+      maxSessionIDs(0),
+      hashAlgorithmsSupported(0),
+      aeadAlgorithmsSupported(0),
+      hashAlgorithmsList(std::vector<uint8_t>()),
+      aeadAlgorithmsList(std::vector<uint8_t>()) {}
+
+TransportParameters::MulticastClientParams::~MulticastClientParams() {}
+
+bool TransportParameters::MulticastClientParams::operator==(
+    const MulticastClientParams& rhs) const {
+  return permitIPv4 == rhs.permitIPv4 && permitIPv6 == rhs.permitIPv6 &&
+         maxAggregateRate == rhs.maxAggregateRate &&
+         maxSessionIDs == rhs.maxSessionIDs &&
+         hashAlgorithmsSupported == rhs.hashAlgorithmsSupported &&
+         aeadAlgorithmsSupported == rhs.aeadAlgorithmsSupported &&
+         hashAlgorithmsList == rhs.hashAlgorithmsList &&
+         aeadAlgorithmsList == rhs.aeadAlgorithmsList;
+}
+
+bool TransportParameters::MulticastClientParams::operator!=(
+    const MulticastClientParams& rhs) const {
+  return !(*this == rhs);
+}
+
+std::ostream& operator<<(
+    std::ostream& os,
+    const TransportParameters::MulticastClientParams& multicast_client_params) {
+  os << multicast_client_params.ToString();
+  return os;
+}
+
+std::string TransportParameters::MulticastClientParams::ToString() const {
+  return "Multicast present";
+}
+
 TransportParameters::LegacyVersionInformation::LegacyVersionInformation()
     : version(0) {}
 
@@ -392,6 +436,10 @@ std::string TransportParameters::ToString() const {
     rv += " " + TransportParameterIdToString(kOriginalDestinationConnectionId) +
           " " + original_destination_connection_id.value().ToString();
   }
+  if (original_destination_connection_id.has_value()) {
+    rv += " " + TransportParameterIdToString(kOriginalDestinationConnectionId) +
+          " " + original_destination_connection_id.value().ToString();
+  }
   rv += max_idle_timeout_ms.ToString(/*for_use_in_list=*/true);
   if (!stateless_reset_token.empty()) {
     rv += " " + TransportParameterIdToString(kStatelessResetToken) + " " +
@@ -438,6 +486,9 @@ std::string TransportParameters::ToString() const {
       }
       rv += QuicTagToString(connection_option);
     }
+  }
+  if (multicast_client_params.has_value()) {
+    rv += " " + multicast_client_params.value().ToString();
   }
   for (const auto& kv : custom_parameters) {
     absl::StrAppend(&rv, " 0x", absl::Hex(static_cast<uint32_t>(kv.first)),
@@ -491,6 +542,7 @@ TransportParameters::TransportParameters(const TransportParameters& other)
       version_information(other.version_information),
       original_destination_connection_id(
           other.original_destination_connection_id),
+      multicast_client_params(other.multicast_client_params),
       max_idle_timeout_ms(other.max_idle_timeout_ms),
       stateless_reset_token(other.stateless_reset_token),
       max_udp_payload_size(other.max_udp_payload_size),
@@ -608,6 +660,10 @@ bool TransportParameters::AreValid(std::string* error_details) const {
     *error_details = "Internal preferred address family failure";
     return false;
   }
+  if (multicast_client_params && perspective == Perspective::IS_SERVER) {
+    *error_details = "Server cannot send multicast client parameters";
+    return false;
+  }
   if (perspective == Perspective::IS_CLIENT &&
       retry_source_connection_id.has_value()) {
     *error_details = "Client cannot send retry_source_connection_id";
@@ -712,6 +768,14 @@ bool SerializeTransportParameters(ParsedQuicVersion /*version*/,
       kTypeAndValueLength + 4 /*IPv4 address */ + 2 /* IPv4 port */ +
       16 /* IPv6 address */ + 1 /* Connection ID length */ +
       255 /* maximum connection ID length */ + 16 /* stateless reset token */;
+      static constexpr size_t kMulticastClientParamsLength =
+      1 + //IPv4 & IPv6 valid + reserved
+      kIntegerParameterLength + // Max aggretated rate
+      kIntegerParameterLength + // Max session IDs
+      kIntegerParameterLength + // Hash algorithm #
+      kIntegerParameterLength + // AEAD algorithm #
+      kIntegerParameterLength + // Hash List
+      kIntegerParameterLength;  // AEAD List
   static constexpr size_t kKnownTransportParamLength =
       kConnectionIdParameterLength +      // original_destination_connection_id
       kIntegerParameterLength +           // max_idle_timeout
@@ -734,7 +798,8 @@ bool SerializeTransportParameters(ParsedQuicVersion /*version*/,
       kIntegerParameterLength +           // max_datagram_frame_size
       kIntegerParameterLength +           // initial_round_trip_time_us
       kTypeAndValueLength +               // google_connection_options
-      kTypeAndValueLength;                // google-version
+      kTypeAndValueLength +                // google-version
+      kMulticastClientParamsLength;       // multicast-parameters
 
   std::vector<TransportParameters::TransportParameterId> parameter_ids = {
       TransportParameters::kOriginalDestinationConnectionId,
@@ -760,6 +825,7 @@ bool SerializeTransportParameters(ParsedQuicVersion /*version*/,
       TransportParameters::kGoogleConnectionOptions,
       TransportParameters::kGoogleQuicVersion,
       TransportParameters::kVersionInformation,
+      TransportParameters::kMulticastClientParams
   };
 
   size_t max_transport_param_length = kKnownTransportParamLength;

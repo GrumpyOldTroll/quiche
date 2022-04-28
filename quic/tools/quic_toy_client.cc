@@ -288,6 +288,10 @@ int QuicToyClient::SendRequestsAndPrintResponses(
 
   QuicConfig config;
   std::string connection_options_string = GetQuicFlag(FLAGS_connection_options);
+
+  if (GetQuicFlag(FLAGS_multicast)) {
+    //config.multicast_client_params_ = NULL;
+  }
   if (!connection_options_string.empty()) {
     config.SetConnectionOptionsToSend(
         ParseQuicTagVector(connection_options_string));

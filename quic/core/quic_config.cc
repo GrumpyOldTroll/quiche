@@ -1182,6 +1182,19 @@ QuicErrorCode QuicConfig::ProcessPeerHello(
   return error;
 }
 
+void QuicConfig::SetMulticastParams(    
+    bool permitIPv4,
+    bool permitIPv6,
+    //TODO: Use proper types/variable length integers
+    int maxAggregateRate,
+    int maxSessionIDs,
+    int hashAlgorithmsSupported,
+    int aeadAlgorithmsSupported,
+    std::vector<uint8_t> hashAlgorithmsList,
+    std::vector<uint8_t> aeadAlgorithmsList) {
+      //multicast_client_params_ =  &new TransportParameters::MulticastClientParams();
+    }
+
 bool QuicConfig::FillTransportParameters(TransportParameters* params) const {
   if (original_destination_connection_id_to_send_.has_value()) {
     params->original_destination_connection_id =
@@ -1280,6 +1293,8 @@ bool QuicConfig::FillTransportParameters(TransportParameters* params) const {
   }
 
   params->custom_parameters = custom_transport_parameters_to_send_;
+
+
 
   return true;
 }

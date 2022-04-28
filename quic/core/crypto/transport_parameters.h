@@ -109,7 +109,41 @@ struct QUIC_EXPORT_PRIVATE TransportParameters {
         std::ostream& os,
         const TransportParameters& params);
   };
+  //multicast_client_params {
+    //Permit IPv4 (1),
+    //Permit IPv6 (1),
+    //Reserved (6),
+    //Max Aggregate Rate (i),
+    //Max Session IDs (i),
+    //Hash Algorithms Supported (i),
+    //AEAD Algorithms Supported (i),
+    //Hash Algorithms List (16 * Hash Algorithms Supported),
+    //AEAD Algorithms List (16 * AEAD Algorithms Supported)
+  //}
+  struct QUIC_EXPORT_PRIVATE  MulticastClientParams {
+    // I do not know what any of this does...
+    MulticastClientParams();
+    MulticastClientParams(const MulticastClientParams& other) = default;
+    MulticastClientParams(MulticastClientParams&& other) = default;
+    ~MulticastClientParams();
+    bool operator==(const MulticastClientParams& rhs) const;
+    bool operator!=(const MulticastClientParams& rhs) const;
 
+    bool permitIPv4;
+    bool permitIPv6;
+    //TODO: Use proper types/variable length integers
+    int maxAggregateRate;
+    int maxSessionIDs;
+    int hashAlgorithmsSupported;
+    int aeadAlgorithmsSupported;
+    std::vector<uint8_t> hashAlgorithmsList;
+    std::vector<uint8_t> aeadAlgorithmsList;
+
+    std::string ToString() const;
+    friend QUIC_EXPORT_PRIVATE std::ostream& operator<<(
+        std::ostream& os,
+        const TransportParameters& params);
+  };
   // LegacyVersionInformation represents the Google QUIC downgrade prevention
   // mechanism ported to QUIC+TLS. It is exchanged using transport parameter ID
   // 0x4752 and will eventually be deprecated in favor of
@@ -190,6 +224,9 @@ struct QUIC_EXPORT_PRIVATE TransportParameters {
   // The value of the Destination Connection ID field from the first
   // Initial packet sent by the client.
   absl::optional<QuicConnectionId> original_destination_connection_id;
+
+  // Multicast parameter
+  absl::optional<MulticastClientParams> multicast_client_params;
 
   // Maximum idle timeout expressed in milliseconds.
   IntegerParameter max_idle_timeout_ms;
