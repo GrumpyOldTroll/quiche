@@ -39,6 +39,7 @@ enum QuicPushParseErrorCode {
 enum QuicPushCommandValues {
   kQPC_Reserved = 0,
   kQPC_MakePool = 1,
+  kQPC_PoolMakeSession = 2,
 };
 
 // consumed is set to the length consumed if a complete command is parsed
@@ -71,6 +72,32 @@ class MakePoolCommand : public QuicPushCommandBase {
 
  private:
   PoolType pool_type_;
+};
+
+class PoolMakeSessionCommand : public QuicPushCommandBase {
+ public:
+  explicit PoolMakeSessionCommand(
+      uint32_t pool_index,
+      const QuicIpAddress &ip,
+      uint16_t port,
+      uint32_t max_rate = 0,
+      uint32_t max_idle = 0);
+
+  ssize_t Encode(size_t len, uint8_t* buf) override;
+  static std::unique_ptr<QuicPushCommandBase> Decode(
+      size_t size,
+      const uint8_t* buf,
+      ssize_t &consumed,
+      QuicPushParseErrorCode &err);
+
+  bool RunCommand(CommandArgs &args) override;
+
+ private:
+  uint32_t pool_index_;
+  QuicIpAddress ip_;
+  uint16_t port_;
+  uint32_t max_rate_;
+  uint32_t max_idle_;
 };
 
 }  // namespace quic
