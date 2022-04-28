@@ -1,0 +1,65 @@
+syntax = "proto3";
+
+package ServerPushInterface;
+
+import "Session.proto";
+
+/*
+    Pools are the way server knows how to coordinate client behavior in sessions to keep clients 
+    within their advertised and inferred limits (especially the bit-rate limits).  The idea is 
+    that quic_server will manage the MC_SESSION_JOIN and MC_SESSION_LEAVE behavior of clients in 
+    such a way that each client receives data up to the rate it can handle, with a share of the
+    data coming from each pool.
+*/
+
+message Pool {
+    
+    uint32 pool_id = 1;
+
+    oneof Command {
+        Session session = 2;
+        PoolMakeSession make_session = 3;
+        PoolMakeUnicast make_unicast = 4;
+        PoolFinishSession finish_session = 5;
+    }
+
+    message Response
+    {
+        oneof CommandResponse
+        {
+            Session.Response session = 1;
+            PoolMakeSession.Response make_session = 2;
+        }
+    }
+    
+}
+
+message PoolFinishSession {
+    uint32 session_id = 1;
+}
+
+message PoolMakeSession {
+
+    bytes source_ip = 1;
+    bytes group_ip = 2;
+    uint32 port = 3;
+    uint32 max_rate = 4;
+    uint32 max_idle = 5;
+
+    message Response 
+    {
+        uint32 session_id = 1;
+    }
+}
+
+message PoolMakeUnicast {
+    
+    enum Type 
+    {
+        Fallback = 0;
+        Supplement = 1;
+    }
+
+    Type type = 1;
+    
+}

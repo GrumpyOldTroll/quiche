@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+package ServerPushInterface;
+
+import "Pool.proto";
+
+message Top {
+    
+    oneof Command {
+        Pool pool = 1;
+        TopMakePool make_pool = 2;
+        TopActivatePool activate_pool = 3;
+        TopDeactivatePool deactivate_pool = 4;
+    }
+
+    message Response {
+        bool success = 1;
+        string error_message = 2;
+
+        oneof CommandResponse {
+            Pool.Response pool = 3;
+            TopMakePool.Response make_pool = 4;
+        }
+    }
+    
+}
+
+message TopActivatePool {
+    uint32 pool_id = 1;
+}
+
+message TopDeactivatePool {
+    uint32 pool_id = 1;
+}
+
+message TopMakePool {
+
+    enum Type { // TODO: Choose the default value as 0, for now 'Reserved'
+        Reserved = 0;
+        Alternatives = 1;
+        OrderedLayers = 2;
+        ArbitraryLayers = 3;
+    }
+
+    Type type = 1;
+
+    message Response 
+    {
+        uint32 pool_id = 1;
+    }
+
+}

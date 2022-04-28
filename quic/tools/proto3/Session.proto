@@ -1,0 +1,53 @@
+syntax = "proto3";
+
+package ServerPushInterface;
+
+import "Stream.proto";
+
+message Session {
+    
+    uint32 session_id = 1;
+
+    oneof Command {
+        Stream stream = 2;
+        SessionAllowDatagrams allow_datagrams = 3;
+        SessionDisallowDatagrams disallow_datagrams = 4;
+        SessionMakeStream make_stream = 5;
+        SessionFinishStream finish_stream = 6;
+        SessionChangeProperty change_property = 7;
+    }
+
+    message Response
+    {
+        oneof CommandResponse
+        {
+            Stream.Response stream = 1;
+            SessionMakeStream.Response make_session = 2;
+        }
+    }
+}
+
+message SessionAllowDatagrams {
+    uint32 size = 1;
+}
+
+message SessionDisallowDatagrams {
+}
+
+message SessionFinishStream {
+    uint32 stream_id = 1;
+}
+
+message SessionMakeStream {
+    message Response {
+        uint32 stream_id = 1;
+    }
+}
+
+message SessionChangeProperty {
+    oneof Properties {
+        uint32 max_rate = 1;
+        uint32 max_idle = 2;
+        //Key key_algorithm = 2;
+    }
+}

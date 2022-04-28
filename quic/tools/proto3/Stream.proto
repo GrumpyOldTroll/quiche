@@ -1,0 +1,13 @@
+
+syntax = "proto3";
+
+package ServerPushInterface;
+
+message Stream {
+    
+    uint32 stream_id = 1;
+
+    message Response {
+        
+    }
+}
