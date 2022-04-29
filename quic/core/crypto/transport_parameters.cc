@@ -345,7 +345,7 @@ std::ostream& operator<<(
   os << multicast_client_params.ToString();
   return os;
 }
-
+// TODO: Properly convert to string (after picking correct types)
 std::string TransportParameters::MulticastClientParams::ToString() const {
   return "Multicast present";
 }
@@ -1236,8 +1236,14 @@ bool SerializeTransportParameters(ParsedQuicVersion /*version*/,
         }
       } break;
       case TransportParameters::kMulticastClientParams: {
+        // TODO: Send the parameters (after picking correct types)
         if (in.multicast_client_params.has_value()){
-          printf("\n Got multicast parameters set. \n");
+            if (!writer.WriteVarInt62(TransportParameters::kMulticastClientParams)) {
+            QUIC_BUG(Failed to write other version)
+                << "Failed to write other version for " << in;
+            return false;
+          }
+          std::cout << "\n Got multicast parameters set. \n" << in.multicast_client_params.value().ToString();
         }
       } break;
       // Custom parameters and GREASE.
