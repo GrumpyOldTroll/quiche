@@ -33,8 +33,7 @@ ssize_t parse_string(size_t size, const uint8_t* buf, std::string &val) {
     if (size < 4) {
         return size - 4;
     }
-    auto val_len = val.length(); // Gotta be a better way to do this
-    val_len = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
+    decltype(val.length()) val_len = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
     auto enc_len = 4 + val_len;
     if (size < enc_len) {
         return size - enc_len;
