@@ -9,6 +9,8 @@
 #include <stdint.h>
 #include <memory>
 
+#include "quic/platform/api/quic_ip_address.h"
+
 namespace quic {
 
 class QuicServer;

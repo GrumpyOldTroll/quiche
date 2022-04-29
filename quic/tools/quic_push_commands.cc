@@ -30,31 +30,27 @@ ssize_t parse_u16(size_t size, const uint8_t* buf, uint16_t& val) {
 }
 
 ssize_t parse_string(size_t size, const uint8_t* buf, std::string &val) {
-  if (size < 4) {
-    return size - 4;
-  }
-  auto val_len = val.length(); // Gotta be a better way to do this
-  val_len = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
-  ssize_t enc_len = 4 + val_len;
-  if (size < enc_len) {
-      return size - enc_len;
-  }
-  val = std::string(buf+4, val_len);
-  return enc_len;
+    if (size < 4) {
+        return size - 4;
+    }
+    auto val_len = val.length(); // Gotta be a better way to do this
+    val_len = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
+    auto enc_len = 4 + val_len;
+    if (size < enc_len) {
+        return size - enc_len;
+    }
+    val = std::string(reinterpret_cast<const char*>(buf+4), val_len);
+    return enc_len;
 }
 
-ssize_t parse_string(size_t size, const uint8_t* buf, std::string &val) {
-  if (size < 4) {
-    return size - 4;
-  }
-  auto val_len = val.length(); // Gotta be a better way to do this
-  val_len = (buf[0] << 24) | (buf[1] << 16) | (buf[2] << 8) | buf[3];
-  ssize_t enc_len = 4 + val_len;
-  if (size < enc_len) {
-      return size - enc_len;
-  }
-  val = std::string(buf+4, val_len);
-  return enc_len;
+ssize_t parse_ip(size_t size, const uint8_t* buf, QuicIpAddress &val) {
+    std::string packed_ip;
+    ssize_t used = parse_string(size, buf, packed_ip);
+    if (used < 0) {
+        return used;
+    }
+    val.FromPackedString(packed_ip.data(), packed_ip.length());
+    return used;
 }
 
 std::unique_ptr<QuicPushCommandBase> Empty() {
@@ -79,7 +75,6 @@ std::unique_ptr<QuicPushCommandBase> Empty() {
     } \
     return fin; \
   } while (0)
-    
 
 std::unique_ptr<QuicPushCommandBase> ParsePushCommand(
     size_t size,
@@ -140,7 +135,7 @@ ssize_t encode_u16(size_t len, uint8_t* buf, uint16_t val) {
 
 ssize_t encode_string(size_t len, uint8_t* buf, const std::string &val) {
   auto val_len = val.length();
-  ssize_t enc_len = 4 + val_len;
+  auto enc_len = 4 + val_len;
   if (len < enc_len) {
     return len - enc_len;
   }
@@ -230,7 +225,7 @@ ssize_t PoolMakeSessionCommand::Encode(size_t len, uint8_t* buf) {
   CHECK_ENCODE(encode_ip, len, buf, ip_);
   CHECK_ENCODE(encode_u16, len, buf, port_);
   CHECK_ENCODE(encode_u32, len, buf, max_rate_);
-  CHECK_ENCODE(encode_u32, len, buf, max_idled_);
+  CHECK_ENCODE(encode_u32, len, buf, max_idle_);
   return start_len - len;
 }
 
@@ -238,26 +233,29 @@ std::unique_ptr<QuicPushCommandBase> PoolMakeSessionCommand::Decode(
     size_t size,
     const uint8_t* buf,
     ssize_t &consumed,
-    QuicPushParseErrorCode &err) {
-  size_t start_size = size;
-  uint16_t pool_type;
-  CHECK_PARSE(parse_u16, size, buf, pool_type, consumed, err);
-  QUIC_LOG(WARNING) << "parsed PoolMakeSession " << pool_type << " sz=" << size;
-  consumed = start_size - size;
-  switch (pool_type) {
-    case kAlternatives:
-    case kOrderedLayers:
-    case kArbitraryLayers: {
-      err = kQPP_NoError;
-      QUIC_LOG(WARNING) << "returned a pool";
-      return std::make_unique<PoolMakeSessionCommand>(PoolType(pool_type));
-    }
-    default: {
-      QUIC_LOG(ERROR) << "pool bad parameter";
-      err = kQPP_BadParameter;
-      return Empty();
-    }
-  }
+    QuicPushParseErrorCode &err)
+{
+    size_t start_size = size;
+
+    uint32_t pool_index;
+    QuicIpAddress ip;
+    uint16_t port;
+    uint32_t max_rate;
+    uint32_t max_idle;
+
+    CHECK_PARSE(parse_u32, size, buf, pool_index, consumed, err);
+    CHECK_PARSE(parse_ip, size, buf, ip, consumed, err);
+    CHECK_PARSE(parse_u16, size, buf, port, consumed, err);
+    CHECK_PARSE(parse_u32, size, buf, max_rate, consumed, err);
+    CHECK_PARSE(parse_u32, size, buf, max_idle, consumed, err);
+
+    QUIC_LOG(WARNING) << "parsed PoolMakeSession(" << pool_index << ","
+        << ip << "," << port << "," << max_rate << "," << max_idle
+        << ") sz=" << size;
+    consumed = start_size - size;
+
+    err = kQPP_NoError;
+    return std::make_unique<PoolMakeSessionCommand>(pool_index, ip, port, max_rate, max_idle);
 }
 
 bool PoolMakeSessionCommand::RunCommand(CommandArgs& args) {
