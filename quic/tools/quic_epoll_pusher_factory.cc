@@ -12,6 +12,10 @@
 
 namespace quic {
 
+QuicEpollPusherFactory::QuicEpollPusherFactory(
+    QuicEpollServer* epoll_server)
+    : epoll_server_(epoll_server) {}
+
 std::unique_ptr<quic::QuicPusher> QuicEpollPusherFactory::CreatePusher(
     std::string multicast_upstream,
     QuicSpdyServerBase* server) {
@@ -21,6 +25,7 @@ std::unique_ptr<quic::QuicPusher> QuicEpollPusherFactory::CreatePusher(
   if (multicast_upstream.substr(0,5) == std::string("root:")) {
     auto pusher = std::make_unique<QuicEpollPipePusher>(
         multicast_upstream.substr(5),
+        epoll_server_,
         server);
     if (!pusher->Initialize()) {
       return std::unique_ptr<QuicPusher>();

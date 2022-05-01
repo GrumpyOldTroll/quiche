@@ -39,16 +39,19 @@ class QuicServer : public QuicSpdyServerBase,
                    public QuicEpollCallbackInterface {
  public:
   QuicServer(std::unique_ptr<ProofSource> proof_source,
-             QuicSimpleServerBackend* quic_simple_server_backend);
+             QuicSimpleServerBackend* quic_simple_server_backend,
+             QuicEpollServer* epoll_server);
   QuicServer(std::unique_ptr<ProofSource> proof_source,
              QuicSimpleServerBackend* quic_simple_server_backend,
-             const ParsedQuicVersionVector& supported_versions);
+             const ParsedQuicVersionVector& supported_versions,
+             QuicEpollServer* epoll_server);
   QuicServer(std::unique_ptr<ProofSource> proof_source,
              const QuicConfig& config,
              const QuicCryptoServerConfig::ConfigOptions& crypto_config_options,
              const ParsedQuicVersionVector& supported_versions,
              QuicSimpleServerBackend* quic_simple_server_backend,
-             uint8_t expected_server_connection_id_length);
+             uint8_t expected_server_connection_id_length,
+             QuicEpollServer* epoll_server);
   QuicServer(const QuicServer&) = delete;
   QuicServer& operator=(const QuicServer&) = delete;
 
@@ -124,7 +127,7 @@ class QuicServer : public QuicSpdyServerBase,
   // Accepts data from the framer and demuxes clients to sessions.
   std::unique_ptr<QuicDispatcher> dispatcher_;
   // Frames incoming packets and hands them to the dispatcher.
-  QuicEpollServer epoll_server_;
+  QuicEpollServer &epoll_server_;
 
   // The port the server is listening on.
   int port_;

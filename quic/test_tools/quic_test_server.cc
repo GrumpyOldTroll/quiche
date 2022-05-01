@@ -166,7 +166,8 @@ class QuicTestDispatcher : public QuicSimpleDispatcher {
 QuicTestServer::QuicTestServer(
     std::unique_ptr<ProofSource> proof_source,
     QuicSimpleServerBackend* quic_simple_server_backend)
-    : QuicServer(std::move(proof_source), quic_simple_server_backend) {}
+    : QuicServer(std::move(proof_source), quic_simple_server_backend,
+                 &test_epoll_server_) {}
 
 QuicTestServer::QuicTestServer(
     std::unique_ptr<ProofSource> proof_source,
@@ -190,7 +191,8 @@ QuicTestServer::QuicTestServer(
                  QuicCryptoServerConfig::ConfigOptions(),
                  supported_versions,
                  quic_simple_server_backend,
-                 expected_server_connection_id_length) {}
+                 expected_server_connection_id_length,
+                 &test_epoll_server_) {}
 
 QuicDispatcher* QuicTestServer::CreateQuicDispatcher() {
   return new QuicTestDispatcher(

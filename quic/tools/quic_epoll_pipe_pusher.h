@@ -6,8 +6,6 @@
 #define QUICHE_QUIC_TOOLS_EPOLL_PIPE_PUSHER_H_
 
 #include <string>
-#define TEMP_QPUSH_BEFORE_COMMANDS 0
-#include <sstream>
 #include <vector>
 #include <memory>
 
@@ -18,12 +16,15 @@
 
 namespace quic {
 
+class QuicServer;
+
 // Factory creating QuicPusher instances.
 class QuicEpollPipePusher : public QuicPusher,
                             public QuicEpollCallbackInterface {
  public:
   QuicEpollPipePusher(
       std::string path_base,
+      QuicEpollServer* epoll_server,
       QuicSpdyServerBase* server);
 
   ~QuicEpollPipePusher() override;
@@ -44,16 +45,12 @@ class QuicEpollPipePusher : public QuicPusher,
  private:
   std::string path_base_;
   std::string top_path_;
-  std::stringstream topcmd_buf_;
-#if TEMP_QPUSH_BEFORE_COMMANDS
-#else
   std::vector<std::unique_ptr<QuicPushCommandBase> > commands_;
   std::vector<uint8_t> parse_buf_;
   size_t filled_len_;
-#endif
   int topcmd_fd_;
-  QuicSpdyServerBase* server_;  // unowned.
   QuicEpollServer* epoll_server_;  // unowned.
+  QuicSpdyServerBase* server_;  // unowned.
   unsigned int event_count_;
 };
 
