@@ -312,14 +312,14 @@ std::string TransportParameters::PreferredAddress::ToString() const {
 }
 
 TransportParameters::MulticastClientParams::MulticastClientParams()
-    : permitIPv4(false),
+    : permitIPv4(true),
       permitIPv6(false), 
-      maxAggregateRate(0),
-      maxSessionIDs(0),
-      hashAlgorithmsSupported(0),
-      aeadAlgorithmsSupported(0),
-      hashAlgorithmsList(std::vector<uint8_t>()),
-      aeadAlgorithmsList(std::vector<uint8_t>()) {}
+      maxAggregateRate(15000),
+      maxChannelIDs(1000),
+      hashAlgorithmsSupported(1),
+      aeadAlgorithmsSupported(1),
+      hashAlgorithmsList(std::vector<uint16_t>(65535)),
+      aeadAlgorithmsList(std::vector<uint16_t>(65535)) {}
 
 TransportParameters::MulticastClientParams::~MulticastClientParams() {}
 
@@ -327,7 +327,7 @@ bool TransportParameters::MulticastClientParams::operator==(
     const MulticastClientParams& rhs) const {
   return permitIPv4 == rhs.permitIPv4 && permitIPv6 == rhs.permitIPv6 &&
          maxAggregateRate == rhs.maxAggregateRate &&
-         maxSessionIDs == rhs.maxSessionIDs &&
+         maxChannelIDs == rhs.maxChannelIDs &&
          hashAlgorithmsSupported == rhs.hashAlgorithmsSupported &&
          aeadAlgorithmsSupported == rhs.aeadAlgorithmsSupported &&
          hashAlgorithmsList == rhs.hashAlgorithmsList &&
@@ -769,13 +769,14 @@ bool SerializeTransportParameters(ParsedQuicVersion /*version*/,
       16 /* IPv6 address */ + 1 /* Connection ID length */ +
       255 /* maximum connection ID length */ + 16 /* stateless reset token */;
       static constexpr size_t kMulticastClientParamsLength =
-      1 + //IPv4 & IPv6 valid + reserved
+      kTypeAndValueLength + sizeof(uint8_t) + //IPv4 & IPv6 valid + reserved
       kIntegerParameterLength + // Max aggretated rate
       kIntegerParameterLength + // Max session IDs
       kIntegerParameterLength + // Hash algorithm #
       kIntegerParameterLength + // AEAD algorithm #
-      kIntegerParameterLength + // Hash List
-      kIntegerParameterLength;  // AEAD List
+      //Probably not efficient
+      (16*sizeof(uint16_t)) + // Hash List
+      (16*sizeof(uint16_t));  // AEAD List
   static constexpr size_t kKnownTransportParamLength =
       kConnectionIdParameterLength +      // original_destination_connection_id
       kIntegerParameterLength +           // max_idle_timeout
@@ -1236,14 +1237,42 @@ bool SerializeTransportParameters(ParsedQuicVersion /*version*/,
         }
       } break;
       case TransportParameters::kMulticastClientParams: {
-        // TODO: Send the parameters (after picking correct types)
         if (in.multicast_client_params.has_value()){
-            if (!writer.WriteVarInt62(TransportParameters::kMulticastClientParams)) {
-            QUIC_BUG(Failed to write other version)
-                << "Failed to write other version for " << in;
+          uint8_t fb = 0;
+          if (in.multicast_client_params.value().permitIPv4){
+            fb |= 1UL << 7;
+          }
+          if (in.multicast_client_params.value().permitIPv6){
+            fb |= 1UL << 6;
+          }
+          
+          uint64_t MCP_len = 1 + QuicDataWriter::GetVarInt62Len(in.multicast_client_params.value().maxAggregateRate) + QuicDataWriter::GetVarInt62Len(in.multicast_client_params.value().maxChannelIDs)
+           + QuicDataWriter::GetVarInt62Len(in.multicast_client_params.value().hashAlgorithmsSupported)  + QuicDataWriter::GetVarInt62Len(in.multicast_client_params.value().aeadAlgorithmsSupported)
+           + (2*in.multicast_client_params.value().hashAlgorithmsSupported) + (2*in.multicast_client_params.value().aeadAlgorithmsSupported);
+          std::cout << "\n Got multicast parameters set. \n" << unsigned(MCP_len) << "\n";
+
+          if (!writer.WriteVarInt62(TransportParameters::kMulticastClientParams) || !writer.WriteVarInt62(MCP_len) || !writer.WriteUInt8(fb)
+            || !writer.WriteVarInt62(in.multicast_client_params.value().maxAggregateRate) || !writer.WriteVarInt62(in.multicast_client_params.value().maxChannelIDs)
+            || !writer.WriteVarInt62(in.multicast_client_params.value().hashAlgorithmsSupported) || !writer.WriteVarInt62(in.multicast_client_params.value().aeadAlgorithmsSupported)) {
+            QUIC_BUG(Failed to write MultiCastParams);
             return false;
           }
-          std::cout << "\n Got multicast parameters set. \n" << in.multicast_client_params.value().ToString();
+          for (size_t i = 0; i < in.multicast_client_params.value().hashAlgorithmsSupported; i++)
+          {
+            printf("Wrote one Hash alg\n");
+            if (!writer.WriteUInt16(in.multicast_client_params.value().hashAlgorithmsList[i])) {
+              QUIC_BUG(Failed to write MultiCastParams);
+              return false;
+            }
+          }
+          for (size_t i = 0; i < in.multicast_client_params.value().aeadAlgorithmsSupported; i++)
+          {
+            printf("Wrote one AEAD alg\n");
+            if (!writer.WriteUInt16(in.multicast_client_params.value().aeadAlgorithmsList[i])) {
+              QUIC_BUG(Failed to write MultiCastParams);
+              return false;
+            }
+          }
         }
       } break;
       // Custom parameters and GREASE.
@@ -1544,6 +1573,51 @@ bool ParseTransportParameters(ParsedQuicVersion version,
         parse_success =
             out->min_ack_delay_us.Read(&value_reader, error_details);
         break;
+      case TransportParameters::kMulticastClientParams: {
+        out->multicast_client_params = TransportParameters::MulticastClientParams();
+        uint8_t fb;
+        if (!value_reader.ReadUInt8(&fb)) {
+          *error_details = "Failed to read multicast_client_params";
+          return false;
+        }
+        if(((fb >> 7) & 1U) == 1) {
+          out->multicast_client_params.value().permitIPv4 = true;
+        }
+        if(((fb >> 6) & 1U) == 1) {
+          out->multicast_client_params.value().permitIPv6 = true;
+        }
+        uint64_t MAR, MCID, HAS, AAS;
+
+        if (!value_reader.ReadVarInt62(&MAR) ||
+            !value_reader.ReadVarInt62(&MCID) ||
+            !value_reader.ReadVarInt62(&HAS) ||
+            !value_reader.ReadVarInt62(&AAS)) {
+          *error_details = "Failed to read multicast_client_params";
+          return false;
+        }
+        out->multicast_client_params.value().maxAggregateRate = MAR;
+        out->multicast_client_params.value().maxChannelIDs = MCID;
+        out->multicast_client_params.value().hashAlgorithmsSupported = HAS;
+        out->multicast_client_params.value().aeadAlgorithmsSupported = AAS;
+        for (size_t i = 0; i < HAS; i++)
+          {
+            uint16_t hashAlgorithm;
+            if (!value_reader.ReadUInt16(&hashAlgorithm)) {
+              *error_details = "Failed to read multicast_client_params";
+              return false;
+            }
+            out->multicast_client_params.value().hashAlgorithmsList.push_back(hashAlgorithm);
+          }
+        for (size_t i = 0; i < AAS; i++)
+          {
+            uint16_t aeadAlgorithm;
+            if (!value_reader.ReadUInt16(&aeadAlgorithm)) {
+              *error_details = "Failed to read multicast_client_params";
+              return false;
+            }
+            out->multicast_client_params.value().aeadAlgorithmsList.push_back(aeadAlgorithm);
+          }
+      } break;
       default:
         if (out->custom_parameters.find(param_id) !=
             out->custom_parameters.end()) {

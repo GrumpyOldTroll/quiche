@@ -133,12 +133,12 @@ struct QUIC_EXPORT_PRIVATE TransportParameters {
     bool permitIPv4;
     bool permitIPv6;
     //TODO: Use proper types/variable length integers
-    int maxAggregateRate;
-    int maxSessionIDs;
-    int hashAlgorithmsSupported;
-    int aeadAlgorithmsSupported;
-    std::vector<uint8_t> hashAlgorithmsList;
-    std::vector<uint8_t> aeadAlgorithmsList;
+    uint64_t maxAggregateRate;
+    uint64_t maxChannelIDs;
+    uint64_t hashAlgorithmsSupported;
+    uint64_t aeadAlgorithmsSupported;
+    std::vector<uint16_t> hashAlgorithmsList;
+    std::vector<uint16_t> aeadAlgorithmsList;
 
     std::string ToString() const;
     friend QUIC_EXPORT_PRIVATE std::ostream& operator<<(
