@@ -1182,12 +1182,16 @@ QuicErrorCode QuicConfig::ProcessPeerHello(
   return error;
 }
 
+void QuicConfig::SetMulticastParams() {
+      multicast_client_params_ = TransportParameters::MulticastClientParams();
+  }
+
 bool QuicConfig::FillTransportParameters(TransportParameters* params) const {
   if (original_destination_connection_id_to_send_.has_value()) {
     params->original_destination_connection_id =
         original_destination_connection_id_to_send_.value();
   }
-
+  
   params->max_idle_timeout_ms.set_value(
       max_idle_timeout_to_send_.ToMilliseconds());
 
@@ -1280,6 +1284,10 @@ bool QuicConfig::FillTransportParameters(TransportParameters* params) const {
   }
 
   params->custom_parameters = custom_transport_parameters_to_send_;
+
+  if (multicast_client_params_.has_value()) {
+    params->multicast_client_params = multicast_client_params_.value();
+  }
 
   return true;
 }
