@@ -132,7 +132,6 @@ struct QUIC_EXPORT_PRIVATE TransportParameters {
 
     bool permitIPv4;
     bool permitIPv6;
-    //TODO: Use proper types/variable length integers
     uint64_t maxAggregateRate;
     uint64_t maxChannelIDs;
     uint64_t hashAlgorithmsSupported;

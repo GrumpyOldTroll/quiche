@@ -318,8 +318,8 @@ TransportParameters::MulticastClientParams::MulticastClientParams()
       maxChannelIDs(1000),
       hashAlgorithmsSupported(1),
       aeadAlgorithmsSupported(1),
-      hashAlgorithmsList(std::vector<uint16_t>(65535)),
-      aeadAlgorithmsList(std::vector<uint16_t>(65535)) {}
+      hashAlgorithmsList(std::vector<uint16_t>(1,65535)),
+      aeadAlgorithmsList(std::vector<uint16_t>(1,65535)) {}
 
 TransportParameters::MulticastClientParams::~MulticastClientParams() {}
 
@@ -345,9 +345,23 @@ std::ostream& operator<<(
   os << multicast_client_params.ToString();
   return os;
 }
-// TODO: Properly convert to string (after picking correct types)
+
 std::string TransportParameters::MulticastClientParams::ToString() const {
-  return "Multicast present";
+    std::string out = std::string("[Permit IPv4: ") + std::string(permitIPv4? "true" : "false")  + 
+    std::string(" Permit IPv6: ") + std::string(permitIPv6? "true" : "false") + 
+    std::string(" Max AggregateRate: ") + std::to_string(maxAggregateRate) + std::string(" Max Channel IDs: ") +
+    std::to_string(maxChannelIDs)  + std::string(" Number of Hash Algorithms Supported: ") + 
+    std::to_string(hashAlgorithmsSupported) + std::string(" Number of AEAD Algorithms Supported: ") +
+    std::to_string(aeadAlgorithmsSupported) + std::string(" Hash Algorithms List: {");
+    for (size_t i = 0; i < hashAlgorithmsSupported; i++) {
+        out += std::to_string(hashAlgorithmsList.at(i)) + " ";
+    }
+    out += std::string("} AEAD Algorithms List: {");
+    for (size_t i = 0; i < aeadAlgorithmsSupported; i++) {
+        out += std::to_string(aeadAlgorithmsList.at(i)) + " ";
+    }
+    out += std::string("}]"); 
+    return out;
 }
 
 TransportParameters::LegacyVersionInformation::LegacyVersionInformation()
@@ -1238,6 +1252,7 @@ bool SerializeTransportParameters(ParsedQuicVersion /*version*/,
       } break;
       case TransportParameters::kMulticastClientParams: {
         if (in.multicast_client_params.has_value()){
+          printf("%s", in.multicast_client_params->ToString().c_str());
           uint8_t fb = 0;
           if (in.multicast_client_params.value().permitIPv4){
             fb |= 1UL << 7;
@@ -1259,7 +1274,6 @@ bool SerializeTransportParameters(ParsedQuicVersion /*version*/,
           }
           for (size_t i = 0; i < in.multicast_client_params.value().hashAlgorithmsSupported; i++)
           {
-            printf("Wrote one Hash alg\n");
             if (!writer.WriteUInt16(in.multicast_client_params.value().hashAlgorithmsList[i])) {
               QUIC_BUG(Failed to write MultiCastParams);
               return false;
@@ -1267,7 +1281,6 @@ bool SerializeTransportParameters(ParsedQuicVersion /*version*/,
           }
           for (size_t i = 0; i < in.multicast_client_params.value().aeadAlgorithmsSupported; i++)
           {
-            printf("Wrote one AEAD alg\n");
             if (!writer.WriteUInt16(in.multicast_client_params.value().aeadAlgorithmsList[i])) {
               QUIC_BUG(Failed to write MultiCastParams);
               return false;
