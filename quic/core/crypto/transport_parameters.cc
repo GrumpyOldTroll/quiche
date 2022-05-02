@@ -1252,6 +1252,7 @@ bool SerializeTransportParameters(ParsedQuicVersion /*version*/,
       } break;
       case TransportParameters::kMulticastClientParams: {
         if (in.multicast_client_params.has_value()){
+          //TODO: Strip output 
           printf("%s", in.multicast_client_params->ToString().c_str());
           uint8_t fb = 0;
           if (in.multicast_client_params.value().permitIPv4){

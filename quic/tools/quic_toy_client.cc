@@ -504,11 +504,7 @@ int QuicToyClient::SendRequestsAndPrintResponses(
 
   if (GetQuicFlag(FLAGS_multicast))
   {
-    while (true)
-    {
-      /* code */
-    }
-    
+    client->WaitForStreamToClose(1);
   }
   
 
