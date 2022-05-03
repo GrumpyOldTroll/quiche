@@ -64,6 +64,11 @@ class QUIC_EXPORT_PRIVATE QuicDataReader : public quiche::QuicheDataReader {
   // Returns true on success, false otherwise.
   bool ReadLengthPrefixedConnectionId(QuicConnectionId* connection_id);
 
+  // Reads 8-bit channel ID length followed by channel ID of that length.
+  // Forwards the internal iterator on success.
+  // Returns true on success, false otherwise.
+  bool ReadLengthPrefixedChannelId(QuicChannelId* channel_id);
+
   // Returns the length in bytes of a variable length integer based on the next
   // two bits available. Returns 1, 2, 4, or 8 on success, and 0 on failure.
   QuicVariableLengthIntegerLength PeekVarInt62Length();

@@ -108,6 +108,10 @@ class QUIC_EXPORT_PRIVATE QuicControlFrameManager {
   // immediately.
   void WriteOrBufferNewToken(absl::string_view token);
 
+  // takes ownership.  frame is complicated and needs external building...
+  void WriteOrBufferMcChannelProperties(
+      QuicMcChannelPropertiesFrame* frame);
+
   // Called when |frame| gets acked. Returns true if |frame| gets acked for the
   // first time, return false otherwise.
   bool OnControlFrameAcked(const QuicFrame& frame);

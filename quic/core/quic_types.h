@@ -16,6 +16,7 @@
 #include "absl/strings/string_view.h"
 #include "absl/types/optional.h"
 #include "quic/core/quic_connection_id.h"
+#include "quic/core/quic_channel_id.h"
 #include "quic/core/quic_error_codes.h"
 #include "quic/core/quic_packet_number.h"
 #include "quic/core/quic_time.h"
@@ -51,6 +52,11 @@ using QuicPublicResetNonceProof = uint64_t;
 using QuicStreamOffset = uint64_t;
 using DiversificationNonce = std::array<char, 32>;
 using PacketTimeVector = std::vector<std::pair<QuicPacketNumber, QuicTime>>;
+using QuicBitrate = uint64_t;
+using QuicChannelCount = uint64_t;
+using QuicClientLimitsSequenceNumber = uint64_t;
+using QuicChannelPropertiesSequenceNumber = uint64_t;
+using QuicClientChannelStateSequenceNumber = uint64_t;
 
 enum : size_t { kStatelessResetTokenLength = 16 };
 using StatelessResetToken = std::array<char, kStatelessResetTokenLength>;
@@ -273,6 +279,17 @@ enum QuicFrameType : uint8_t {
   NEW_TOKEN_FRAME,
   RETIRE_CONNECTION_ID_FRAME,
   ACK_FREQUENCY_FRAME,
+  MC_CHANNEL_PROPERTIES_FRAME,
+  MC_CHANNEL_JOIN_FRAME,
+  MC_CHANNEL_LEAVE_FRAME,
+  MC_CHANNEL_INTEGRITY_NO_LENGTH_FRAMEX,
+  MC_CHANNEL_INTEGRITY_FRAMEX,
+  MC_CHANNEL_STREAM_BOUNDARY_FRAMEX,
+  MC_CHANNEL_ACK_FRAMEX,
+  MC_PATH_RESPONSE_FRAMEX,
+  MC_CLIENT_LIMITS_FRAME,
+  MC_CHANNEL_RETIRE_FRAME,
+  MC_CLIENT_CHANNEL_STATE_FRAME,
 
   NUM_FRAME_TYPES
 };
@@ -345,6 +362,19 @@ enum QuicIetfFrameType : uint64_t {
   // packet receive timestamps.
   // TODO(ianswett): Determine a proper value to replace this temporary value.
   IETF_ACK_RECEIVE_TIMESTAMPS = 0x22,
+
+  // Multicast frames
+  IETF_MC_CHANNEL_PROPERTIES = 0xff3e801,
+  IETF_MC_CHANNEL_JOIN = 0xff3e802,
+  IETF_MC_CHANNEL_LEAVE = 0xff3e803,
+  IETF_MC_CHANNEL_INTEGRITY_NO_LENGTHX = 0xff3e804,
+  IETF_MC_CHANNEL_INTEGRITYX = 0xff3e805,
+  IETF_MC_CHANNEL_STREAM_BOUNDARYX = 0xff3e806,
+  IETF_MC_CHANNEL_ACKX = 0xff3e807,
+  IETF_MC_PATH_RESPONSEX = 0xff3e808,
+  IETF_MC_CLIENT_LIMITS = 0xff3e809,
+  IETF_MC_CHANNEL_RETIRE = 0xff3e80a,
+  IETF_MC_CLIENT_CHANNEL_STATE = 0xff3e80b,
 };
 QUIC_EXPORT_PRIVATE std::ostream& operator<<(std::ostream& os,
                                              const QuicIetfFrameType& c);

@@ -142,7 +142,7 @@ struct QUIC_EXPORT_PRIVATE TransportParameters {
     std::string ToString() const;
     friend QUIC_EXPORT_PRIVATE std::ostream& operator<<(
         std::ostream& os,
-        const TransportParameters& params);
+        const MulticastClientParams& params);
   };
   // LegacyVersionInformation represents the Google QUIC downgrade prevention
   // mechanism ported to QUIC+TLS. It is exchanged using transport parameter ID
