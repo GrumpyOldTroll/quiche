@@ -58,6 +58,14 @@ void QuicControlFrameManager::WriteOrBufferQuicFrame(QuicFrame frame) {
   WriteBufferedFrames();
 }
 
+void QuicControlFrameManager::WriteOrBufferMcChannelProperties(
+    QuicMcChannelPropertiesFrame* frame) {
+  QUIC_DVLOG(1) << "Writing MC_CHANNEL_PROPERTIES_FRAME";
+  frame->control_frame_id = ++last_control_frame_id_;
+  WriteOrBufferQuicFrame(QuicFrame(frame));
+}
+
+
 void QuicControlFrameManager::WriteOrBufferRstStream(
     QuicStreamId id, QuicResetStreamError error,
     QuicStreamOffset bytes_written) {

@@ -1020,6 +1020,8 @@ class QUIC_EXPORT_PRIVATE QuicSession
 
   const bool support_client_cert_ =
       GetQuicRestartFlag(quic_tls_server_support_client_cert);
+
+  bool sent_initial_multicast_ = false;
 };
 
 }  // namespace quic

@@ -520,9 +520,12 @@ bool QuicConfig::HasClientSentConnectionOption(QuicTag tag,
 
 bool QuicConfig::HasClientSentMulticastParameters(Perspective perspective) const {
   if (perspective == Perspective::IS_SERVER) {
-    QUIC_LOG(WARNING) << "checked multicast server";
-    return true;
-    // return received_client_multicast_transport_parameters_;
+    if (multicast_client_params_) {
+      QUIC_LOG(WARNING) << "checked multicast server, params: " << multicast_client_params_.value();
+    } else {
+      QUIC_LOG(WARNING) << "checked multicast server, params: " << "(none)";
+    }
+    return static_cast<bool>(multicast_client_params_);
   }
   QUIC_LOG(WARNING) << "checked multicast client";
   return false;
@@ -1192,12 +1195,16 @@ QuicErrorCode QuicConfig::ProcessPeerHello(
   return error;
 }
 
+void QuicConfig::SetMulticastParams() {
+      multicast_client_params_ = TransportParameters::MulticastClientParams();
+  }
+
 bool QuicConfig::FillTransportParameters(TransportParameters* params) const {
   if (original_destination_connection_id_to_send_.has_value()) {
     params->original_destination_connection_id =
         original_destination_connection_id_to_send_.value();
   }
-
+  
   params->max_idle_timeout_ms.set_value(
       max_idle_timeout_to_send_.ToMilliseconds());
 
@@ -1290,6 +1297,10 @@ bool QuicConfig::FillTransportParameters(TransportParameters* params) const {
   }
 
   params->custom_parameters = custom_transport_parameters_to_send_;
+
+  if (multicast_client_params_.has_value()) {
+    params->multicast_client_params = multicast_client_params_.value();
+  }
 
   return true;
 }
@@ -1423,8 +1434,6 @@ QuicErrorCode QuicConfig::ProcessTransportParameters(
   }
 
   received_custom_transport_parameters_ = params.custom_parameters;
-
-  received_client_multicast_transport_parameters_ = true;
 
   if (!is_resumption) {
     negotiated_ = true;
