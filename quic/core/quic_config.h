@@ -664,6 +664,7 @@ class QUIC_EXPORT_PRIVATE QuicConfig {
 
   // Multicast parameters
   absl::optional<TransportParameters::MulticastClientParams> multicast_client_params_;
+  bool received_multicast_client_params_ = false;
 };
 
 }  // namespace quic

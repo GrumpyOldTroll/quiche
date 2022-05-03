@@ -1298,7 +1298,7 @@ bool QuicConfig::FillTransportParameters(TransportParameters* params) const {
 
   params->custom_parameters = custom_transport_parameters_to_send_;
 
-  if (multicast_client_params_.has_value()) {
+  if (multicast_client_params_.has_value() && !received_multicast_client_params_) {
     params->multicast_client_params = multicast_client_params_.value();
   }
 
@@ -1432,7 +1432,11 @@ QuicErrorCode QuicConfig::ProcessTransportParameters(
     connection_options_.SetReceivedValues(
         params.google_connection_options.value());
   }
-
+  //TODO: What about resumptions?
+  if (params.multicast_client_params.has_value()) {
+    multicast_client_params_ = params.multicast_client_params.value();
+    received_multicast_client_params_ = true;
+  }
   received_custom_transport_parameters_ = params.custom_parameters;
 
   if (!is_resumption) {
