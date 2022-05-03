@@ -518,6 +518,16 @@ bool QuicConfig::HasClientSentConnectionOption(QuicTag tag,
   return false;
 }
 
+bool QuicConfig::HasClientSentMulticastParameters(Perspective perspective) const {
+  if (perspective == Perspective::IS_SERVER) {
+    QUIC_LOG(WARNING) << "checked multicast server";
+    return true;
+    // return received_client_multicast_transport_parameters_;
+  }
+  QUIC_LOG(WARNING) << "checked multicast client";
+  return false;
+}
+
 void QuicConfig::SetClientConnectionOptions(
     const QuicTagVector& client_connection_options) {
   client_connection_options_.SetSendValues(client_connection_options);
@@ -1413,6 +1423,8 @@ QuicErrorCode QuicConfig::ProcessTransportParameters(
   }
 
   received_custom_transport_parameters_ = params.custom_parameters;
+
+  received_client_multicast_transport_parameters_ = true;
 
   if (!is_resumption) {
     negotiated_ = true;

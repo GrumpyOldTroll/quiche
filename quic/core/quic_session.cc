@@ -2540,6 +2540,36 @@ bool QuicSession::OnMaxStreamsFrame(const QuicMaxStreamsFrame& frame) {
   return true;
 }
 
+bool QuicSession::OnMcChannelJoinFrame(const QuicMcChannelJoinFrame& frame) {
+  QUIC_LOG(WARNING) << "XXXX(1.1) Got :" << frame;
+  return true;
+}
+
+bool QuicSession::OnMcChannelLeaveFrame(const QuicMcChannelLeaveFrame& frame) {
+  QUIC_LOG(WARNING) << "XXXX(1.2) Got :" << frame;
+  return true;
+}
+
+bool QuicSession::OnMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame& frame) {
+  QUIC_LOG(WARNING) << "XXXX(1.3) Got :" << frame;
+  return true;
+}
+
+bool QuicSession::OnMcChannelRetireFrame(const QuicMcChannelRetireFrame& frame) {
+  QUIC_LOG(WARNING) << "XXXX(1.4) Got :" << frame;
+  return true;
+}
+
+bool QuicSession::OnMcClientChannelStateFrame(const QuicMcClientChannelStateFrame& frame) {
+  QUIC_LOG(WARNING) << "XXXX(1.5) Got :" << frame;
+  return true;
+}
+
+bool QuicSession::OnMcClientLimitsFrame(const QuicMcClientLimitsFrame& frame) {
+  QUIC_LOG(WARNING) << "XXXX(1.6) Got :" << frame;
+  return true;
+}
+
 bool QuicSession::OnStreamsBlockedFrame(const QuicStreamsBlockedFrame& frame) {
   std::string error_details;
   if (ietf_streamid_manager_.OnStreamsBlockedFrame(frame, &error_details)) {

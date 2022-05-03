@@ -141,6 +141,19 @@ struct QUIC_EXPORT_PRIVATE QuicConnectionStats {
   uint64_t blocked_frames_received = 0;
   uint64_t blocked_frames_sent = 0;
 
+  uint64_t mc_channel_join_frames_received = 0;
+  uint64_t mc_channel_join_frames_sent = 0;
+  uint64_t mc_channel_leave_frames_received = 0;
+  uint64_t mc_channel_leave_frames_sent = 0;
+  uint64_t mc_channel_properties_frames_received = 0;
+  uint64_t mc_channel_properties_frames_sent = 0;
+  uint64_t mc_channel_retire_frames_received = 0;
+  uint64_t mc_channel_retire_frames_sent = 0;
+  uint64_t mc_client_channel_state_frames_received = 0;
+  uint64_t mc_client_channel_state_frames_sent = 0;
+  uint64_t mc_client_limits_frames_received = 0;
+  uint64_t mc_client_limits_frames_sent = 0;
+
   // Number of connectivity probing packets received by this connection.
   uint64_t num_connectivity_probing_received = 0;
 

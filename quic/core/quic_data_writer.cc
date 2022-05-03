@@ -80,6 +80,11 @@ bool QuicDataWriter::WriteLengthPrefixedConnectionId(
   return WriteUInt8(connection_id.length()) && WriteConnectionId(connection_id);
 }
 
+bool QuicDataWriter::WriteLengthPrefixedChannelId(
+    QuicConnectionId channel_id) {
+  return WriteUInt8(channel_id.length()) && WriteConnectionId(channel_id);
+}
+
 bool QuicDataWriter::WriteRandomBytes(QuicRandom* random, size_t length) {
   char* dest = BeginWrite(length);
   if (!dest) {

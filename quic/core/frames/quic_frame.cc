@@ -80,6 +80,24 @@ QuicFrame::QuicFrame(QuicNewTokenFrame* frame)
 QuicFrame::QuicFrame(QuicAckFrequencyFrame* frame)
     : type(ACK_FREQUENCY_FRAME), ack_frequency_frame(frame) {}
 
+QuicFrame::QuicFrame(QuicMcChannelJoinFrame* frame)
+    : type(MC_CHANNEL_JOIN_FRAME), mc_channel_join_frame(frame) {}
+
+QuicFrame::QuicFrame(QuicMcChannelLeaveFrame* frame)
+    : type(MC_CHANNEL_LEAVE_FRAME), mc_channel_leave_frame(frame) {}
+
+QuicFrame::QuicFrame(QuicMcChannelPropertiesFrame* frame)
+    : type(MC_CHANNEL_PROPERTIES_FRAME), mc_channel_properties_frame(frame) {}
+
+QuicFrame::QuicFrame(QuicMcChannelRetireFrame* frame)
+    : type(MC_CHANNEL_RETIRE_FRAME), mc_channel_retire_frame(frame) {}
+
+QuicFrame::QuicFrame(QuicMcClientChannelStateFrame* frame)
+    : type(MC_CLIENT_CHANNEL_STATE_FRAME), mc_client_channel_state_frame(frame) {}
+
+QuicFrame::QuicFrame(QuicMcClientLimitsFrame* frame)
+    : type(MC_CLIENT_LIMITS_FRAME), mc_client_limits_frame(frame) {}
+
 void DeleteFrames(QuicFrames* frames) {
   for (QuicFrame& frame : *frames) {
     DeleteFrame(&frame);
@@ -150,6 +168,31 @@ void DeleteFrame(QuicFrame* frame) {
     case ACK_FREQUENCY_FRAME:
       delete frame->ack_frequency_frame;
       break;
+    case MC_CHANNEL_JOIN_FRAME:
+      delete frame->mc_channel_join_frame;
+      break;
+    case MC_CHANNEL_LEAVE_FRAME:
+      delete frame->mc_channel_leave_frame;
+      break;
+    case MC_CHANNEL_PROPERTIES_FRAME:
+      delete frame->mc_channel_properties_frame;
+      break;
+    case MC_CHANNEL_RETIRE_FRAME:
+      delete frame->mc_channel_retire_frame;
+      break;
+    case MC_CLIENT_CHANNEL_STATE_FRAME:
+      delete frame->mc_client_channel_state_frame;
+      break;
+    case MC_CLIENT_LIMITS_FRAME:
+      delete frame->mc_client_limits_frame;
+      break;
+    case MC_CHANNEL_INTEGRITY_NO_LENGTH_FRAMEX:
+    case MC_CHANNEL_INTEGRITY_FRAMEX:
+    case MC_CHANNEL_STREAM_BOUNDARY_FRAMEX:
+    case MC_CHANNEL_ACK_FRAMEX:
+    case MC_PATH_RESPONSE_FRAMEX:
+      break;
+
     case NUM_FRAME_TYPES:
       QUICHE_DCHECK(false) << "Cannot delete type: " << frame->type;
   }
@@ -181,6 +224,17 @@ bool IsControlFrame(QuicFrameType type) {
     case HANDSHAKE_DONE_FRAME:
     case ACK_FREQUENCY_FRAME:
     case NEW_TOKEN_FRAME:
+    case MC_CHANNEL_JOIN_FRAME:
+    case MC_CHANNEL_LEAVE_FRAME:
+    case MC_CHANNEL_PROPERTIES_FRAME:
+    // case MC_CHANNEL_INTEGRITY_NO_LENGTH_FRAMEX:
+    // case MC_CHANNEL_INTEGRITY_FRAMEX:
+    // case MC_CHANNEL_STREAM_BOUNDARY_FRAMEX:
+    // case MC_CHANNEL_ACK_FRAMEX:
+    // case MC_PATH_RESPONSE_FRAMEX:
+    case MC_CLIENT_LIMITS_FRAME:
+    case MC_CHANNEL_RETIRE_FRAME:
+    case MC_CLIENT_CHANNEL_STATE_FRAME:
       return true;
     default:
       return false;
@@ -215,6 +269,24 @@ QuicControlFrameId GetControlFrameId(const QuicFrame& frame) {
       return frame.ack_frequency_frame->control_frame_id;
     case NEW_TOKEN_FRAME:
       return frame.new_token_frame->control_frame_id;
+    case MC_CHANNEL_JOIN_FRAME:
+      return frame.mc_channel_join_frame->control_frame_id;
+    case MC_CHANNEL_LEAVE_FRAME:
+      return frame.mc_channel_leave_frame->control_frame_id;
+    case MC_CHANNEL_PROPERTIES_FRAME:
+      return frame.mc_channel_properties_frame->control_frame_id;
+    case MC_CHANNEL_RETIRE_FRAME:
+      return frame.mc_channel_retire_frame->control_frame_id;
+    case MC_CLIENT_CHANNEL_STATE_FRAME:
+      return frame.mc_client_channel_state_frame->control_frame_id;
+    case MC_CLIENT_LIMITS_FRAME:
+      return frame.mc_client_limits_frame->control_frame_id;
+    case MC_CHANNEL_INTEGRITY_NO_LENGTH_FRAMEX:
+    case MC_CHANNEL_INTEGRITY_FRAMEX:
+    case MC_CHANNEL_STREAM_BOUNDARY_FRAMEX:
+    case MC_CHANNEL_ACK_FRAMEX:
+    case MC_PATH_RESPONSE_FRAMEX:
+      return kInvalidControlFrameId;
     default:
       return kInvalidControlFrameId;
   }
@@ -261,6 +333,29 @@ void SetControlFrameId(QuicControlFrameId control_frame_id, QuicFrame* frame) {
     case NEW_TOKEN_FRAME:
       frame->new_token_frame->control_frame_id = control_frame_id;
       return;
+    case MC_CHANNEL_JOIN_FRAME:
+      frame->mc_channel_join_frame->control_frame_id = control_frame_id;
+      return;
+    case MC_CHANNEL_LEAVE_FRAME:
+      frame->mc_channel_leave_frame->control_frame_id = control_frame_id;
+      return;
+    case MC_CHANNEL_PROPERTIES_FRAME:
+      frame->mc_channel_properties_frame->control_frame_id = control_frame_id;
+      return;
+    case MC_CHANNEL_RETIRE_FRAME:
+      frame->mc_channel_retire_frame->control_frame_id = control_frame_id;
+      return;
+    case MC_CLIENT_CHANNEL_STATE_FRAME:
+      frame->mc_client_channel_state_frame->control_frame_id = control_frame_id;
+      return;
+    case MC_CLIENT_LIMITS_FRAME:
+      frame->mc_client_limits_frame->control_frame_id = control_frame_id;
+      return;
+    // case MC_CHANNEL_INTEGRITY_NO_LENGTH_FRAMEX:
+    // case MC_CHANNEL_INTEGRITY_FRAMEX:
+    // case MC_CHANNEL_STREAM_BOUNDARY_FRAMEX:
+    // case MC_CHANNEL_ACK_FRAMEX:
+    // case MC_PATH_RESPONSE_FRAMEX:
     default:
       QUIC_BUG(quic_bug_12594_1)
           << "Try to set control frame id of a frame without control frame id";
@@ -312,6 +407,29 @@ QuicFrame CopyRetransmittableControlFrame(const QuicFrame& frame) {
     case NEW_TOKEN_FRAME:
       copy = QuicFrame(new QuicNewTokenFrame(*frame.new_token_frame));
       break;
+    case MC_CHANNEL_JOIN_FRAME:
+      copy = QuicFrame(new QuicMcChannelJoinFrame(*frame.mc_channel_join_frame));
+      break;
+    case MC_CHANNEL_LEAVE_FRAME:
+      copy = QuicFrame(new QuicMcChannelLeaveFrame(*frame.mc_channel_leave_frame));
+      break;
+    case MC_CHANNEL_PROPERTIES_FRAME:
+      copy = QuicFrame(new QuicMcChannelPropertiesFrame(*frame.mc_channel_properties_frame));
+      break;
+    case MC_CHANNEL_RETIRE_FRAME:
+      copy = QuicFrame(new QuicMcChannelRetireFrame(*frame.mc_channel_retire_frame));
+      break;
+    case MC_CLIENT_CHANNEL_STATE_FRAME:
+      copy = QuicFrame(new QuicMcClientChannelStateFrame(*frame.mc_client_channel_state_frame));
+      break;
+    case MC_CLIENT_LIMITS_FRAME:
+      copy = QuicFrame(new QuicMcClientLimitsFrame(*frame.mc_client_limits_frame));
+      break;
+    // case MC_CHANNEL_INTEGRITY_NO_LENGTH_FRAMEX:
+    // case MC_CHANNEL_INTEGRITY_FRAMEX:
+    // case MC_CHANNEL_STREAM_BOUNDARY_FRAMEX:
+    // case MC_CHANNEL_ACK_FRAMEX:
+    // case MC_PATH_RESPONSE_FRAMEX:
     default:
       QUIC_BUG(quic_bug_10533_1)
           << "Try to copy a non-retransmittable control frame: " << frame;
@@ -406,6 +524,29 @@ QuicFrame CopyQuicFrame(quiche::QuicheBufferAllocator* allocator,
     case ACK_FREQUENCY_FRAME:
       copy = QuicFrame(new QuicAckFrequencyFrame(*frame.ack_frequency_frame));
       break;
+    case MC_CHANNEL_JOIN_FRAME:
+      copy = QuicFrame(new QuicMcChannelJoinFrame(*frame.mc_channel_join_frame));
+      break;
+    case MC_CHANNEL_LEAVE_FRAME:
+      copy = QuicFrame(new QuicMcChannelLeaveFrame(*frame.mc_channel_leave_frame));
+      break;
+    case MC_CHANNEL_PROPERTIES_FRAME:
+      copy = QuicFrame(new QuicMcChannelPropertiesFrame(*frame.mc_channel_properties_frame));
+      break;
+    case MC_CHANNEL_RETIRE_FRAME:
+      copy = QuicFrame(new QuicMcChannelRetireFrame(*frame.mc_channel_retire_frame));
+      break;
+    case MC_CLIENT_CHANNEL_STATE_FRAME:
+      copy = QuicFrame(new QuicMcClientChannelStateFrame(*frame.mc_client_channel_state_frame));
+      break;
+    case MC_CLIENT_LIMITS_FRAME:
+      copy = QuicFrame(new QuicMcClientLimitsFrame(*frame.mc_client_limits_frame));
+      break;
+    case MC_CHANNEL_INTEGRITY_NO_LENGTH_FRAMEX:
+    case MC_CHANNEL_INTEGRITY_FRAMEX:
+    case MC_CHANNEL_STREAM_BOUNDARY_FRAMEX:
+    case MC_CHANNEL_ACK_FRAMEX:
+    case MC_PATH_RESPONSE_FRAMEX:
     default:
       QUIC_BUG(quic_bug_10533_2) << "Cannot copy frame: " << frame;
       copy = QuicFrame(QuicPingFrame(kInvalidControlFrameId));
@@ -508,6 +649,29 @@ std::ostream& operator<<(std::ostream& os, const QuicFrame& frame) {
     case ACK_FREQUENCY_FRAME:
       os << "type { ACK_FREQUENCY_FRAME } " << *(frame.ack_frequency_frame);
       break;
+    case MC_CHANNEL_JOIN_FRAME:
+      os << "type { MC_CHANNEL_JOIN_FRAME } " << *(frame.mc_channel_join_frame);
+      break;
+    case MC_CHANNEL_LEAVE_FRAME:
+      os << "type { MC_CHANNEL_LEAVE_FRAME } " << *(frame.mc_channel_leave_frame);
+      break;
+    case MC_CHANNEL_PROPERTIES_FRAME:
+      os << "type { MC_CHANNEL_PROPERTIES_FRAME } " << *(frame.mc_channel_properties_frame);
+      break;
+    case MC_CHANNEL_RETIRE_FRAME:
+      os << "type { MC_CHANNEL_RETIRE_FRAME } " << *(frame.mc_channel_retire_frame);
+      break;
+    case MC_CLIENT_CHANNEL_STATE_FRAME:
+      os << "type { MC_CLIENT_CHANNEL_STATE_FRAME } " << *(frame.mc_client_channel_state_frame);
+      break;
+    case MC_CLIENT_LIMITS_FRAME:
+      os << "type { MC_CLIENT_LIMITS_FRAME } " << *(frame.mc_client_limits_frame);
+      break;
+    case MC_CHANNEL_INTEGRITY_NO_LENGTH_FRAMEX:
+    case MC_CHANNEL_INTEGRITY_FRAMEX:
+    case MC_CHANNEL_STREAM_BOUNDARY_FRAMEX:
+    case MC_CHANNEL_ACK_FRAMEX:
+    case MC_PATH_RESPONSE_FRAMEX:
     default: {
       QUIC_LOG(ERROR) << "Unknown frame type: " << frame.type;
       break;

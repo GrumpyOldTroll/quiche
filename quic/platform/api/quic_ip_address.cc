@@ -121,6 +121,28 @@ std::string QuicIpAddress::ToPackedString() const {
   return "";
 }
 
+bool QuicIpAddress::ToPackedBuffer(uint8_t* buf, size_t len) const {
+  switch (family_) {
+    case IpAddressFamily::IP_V4:
+      if (len < sizeof(address_.v4)) {
+        return false;
+      }
+      memcpy(buf, address_.bytes, sizeof(address_.v4));
+      return true;
+    case IpAddressFamily::IP_V6:
+      if (len < sizeof(address_.v6)) {
+        return false;
+      }
+      memcpy(buf, address_.bytes, sizeof(address_.v6));
+      return true;
+    case IpAddressFamily::IP_UNSPEC:
+      return false;
+  }
+  QUIC_BUG(quic_bug_10126_3)
+      << "Invalid IpAddressFamily " << static_cast<int32_t>(family_);
+  return false;
+}
+
 std::string QuicIpAddress::ToString() const {
   if (!IsInitialized()) {
     return "";

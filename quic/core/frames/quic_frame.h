@@ -19,6 +19,12 @@
 #include "quic/core/frames/quic_handshake_done_frame.h"
 #include "quic/core/frames/quic_max_streams_frame.h"
 #include "quic/core/frames/quic_message_frame.h"
+#include "quic/core/frames/quic_mc_channel_join_frame.h"
+#include "quic/core/frames/quic_mc_channel_leave_frame.h"
+#include "quic/core/frames/quic_mc_channel_properties_frame.h"
+#include "quic/core/frames/quic_mc_channel_retire_frame.h"
+#include "quic/core/frames/quic_mc_client_channel_state_frame.h"
+#include "quic/core/frames/quic_mc_client_limits_frame.h"
 #include "quic/core/frames/quic_mtu_discovery_frame.h"
 #include "quic/core/frames/quic_new_connection_id_frame.h"
 #include "quic/core/frames/quic_new_token_frame.h"
@@ -74,6 +80,12 @@ struct QUIC_EXPORT_PRIVATE QuicFrame {
   explicit QuicFrame(QuicMessageFrame* message_frame);
   explicit QuicFrame(QuicCryptoFrame* crypto_frame);
   explicit QuicFrame(QuicAckFrequencyFrame* ack_frequency_frame);
+  explicit QuicFrame(QuicMcChannelJoinFrame* mc_channel_join_frame);
+  explicit QuicFrame(QuicMcChannelLeaveFrame* mc_channel_leave_frame);
+  explicit QuicFrame(QuicMcChannelPropertiesFrame* mc_channel_properties_frame);
+  explicit QuicFrame(QuicMcChannelRetireFrame* mc_channel_retire_frame);
+  explicit QuicFrame(QuicMcClientChannelStateFrame* mc_client_channel_state_frame);
+  explicit QuicFrame(QuicMcClientLimitsFrame* mc_client_limits_frame);
 
   QUIC_EXPORT_PRIVATE friend std::ostream& operator<<(std::ostream& os,
                                                       const QuicFrame& frame);
@@ -119,6 +131,12 @@ struct QUIC_EXPORT_PRIVATE QuicFrame {
         QuicCryptoFrame* crypto_frame;
         QuicAckFrequencyFrame* ack_frequency_frame;
         QuicNewTokenFrame* new_token_frame;
+        QuicMcChannelJoinFrame* mc_channel_join_frame;
+        QuicMcChannelLeaveFrame* mc_channel_leave_frame;
+        QuicMcChannelPropertiesFrame* mc_channel_properties_frame;
+        QuicMcChannelRetireFrame* mc_channel_retire_frame;
+        QuicMcClientChannelStateFrame* mc_client_channel_state_frame;
+        QuicMcClientLimitsFrame* mc_client_limits_frame;
       };
     };
   };
