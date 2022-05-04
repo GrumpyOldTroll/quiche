@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-syntax = "proto2";
+syntax = "proto3";
 
 option optimize_for = LITE_RUNTIME;
 
@@ -12,7 +12,7 @@ package quic;
 
 message PushChannel {
     
-    required uint32 channel_id = 1;
+    uint32 channel_id = 1;
 
     oneof Command {
         PushStream stream = 2;
@@ -34,19 +34,19 @@ message PushChannel {
 }
 
 message PushChannelAllowDatagrams {
-    required uint32 size = 1;
+    uint32 size = 1;
 }
 
 message PushChannelDisallowDatagrams {
 }
 
 message PushChannelFinishStream {
-    required uint32 stream_id = 1;
+    uint32 stream_id = 1;
 }
 
 message PushChannelMakeStream {
     message Response {
-        required uint32 stream_id = 1;
+        uint32 stream_id = 1;
     }
 }
 

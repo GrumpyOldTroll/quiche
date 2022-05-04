@@ -15,6 +15,7 @@
 
 #include "quic/platform/api/quic_logging.h"
 #include "quic/tools/quic_server.h"
+#include "quic/core/proto/push_server_proto.h"
 
 namespace {
 
@@ -138,6 +139,9 @@ bool QuicEpollPipePusher::RunBufferedCommands() {
   int commands = 0;
   // TODO: maybe a time limit is better than a command count limit?  Or
   //       do we need both?  --jake 2022-04-24
+
+  quic::PushServer top_cmd;
+  top_cmd.mutable_activate_pool()->set_pool_id(42);
 
   size_t consumed = 0;
   ssize_t just_ate = 0;

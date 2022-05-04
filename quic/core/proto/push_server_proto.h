@@ -2,14 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef QUICHE_QUIC_CORE_PROTO_QUIC_SERVER_PUSH_PROTO_H_
-#define QUICHE_QUIC_CORE_PROTO_QUIC_SERVER_PUSH_PROTO_H_
+#ifndef QUICHE_QUIC_CORE_PROTO_PUSH_SERVER_PROTO_H_
+#define QUICHE_QUIC_CORE_PROTO_PUSH_SERVER_PROTO_H_
 
 #pragma clang diagnostic push
 #pragma clang diagnostic ignored "-Weverything"
 
-#include "quic/core/proto/quic_server_push.pb.h"
+#include "quic/core/proto/push_server.pb.h"
 
 #pragma clang diagnostic pop
 
-#endif  // QUICHE_QUIC_CORE_PROTO_QUIC_SERVER_PUSH_PROTO_H_
+#endif  // QUICHE_QUIC_CORE_PROTO_PUSH_SERVER_PROTO_H_

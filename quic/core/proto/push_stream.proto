@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-syntax = "proto2";
+syntax = "proto3";
 
 option optimize_for = LITE_RUNTIME;
 
@@ -10,7 +10,7 @@ package quic;
 
 message PushStream {
     
-    required uint32 stream_id = 1;
+    uint32 stream_id = 1;
 
     message Response {
         

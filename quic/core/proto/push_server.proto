@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-syntax = "proto2";
+syntax = "proto3";
 
 option optimize_for = LITE_RUNTIME;
 
@@ -10,7 +10,7 @@ package quic;
 
 import "quic/core/proto/push_pool.proto";
 
-message QuicServerPush {
+message PushServer {
     
     oneof Command {
         PushPool pool = 1;
@@ -20,8 +20,8 @@ message QuicServerPush {
     }
 
     message Response {
-        optional bool success = 1;
-        optional string error_message = 2;
+        bool success = 1;
+        string error_message = 2;
 
         oneof CommandResponse {
             PushPool.Response pool = 3;
@@ -32,11 +32,11 @@ message QuicServerPush {
 }
 
 message QuicServerPushActivatePool {
-    optional uint32 pool_id = 1;
+    uint32 pool_id = 1;
 }
 
 message QuicServerPushDeactivatePool {
-    optional uint32 pool_id = 1;
+    uint32 pool_id = 1;
 }
 
 message QuicServerPushMakePool {
@@ -48,11 +48,10 @@ message QuicServerPushMakePool {
         ArbitraryLayers = 3;
     }
 
-    optional Type type = 1;
+    Type type = 1;
 
     message Response 
     {
-        optional uint32 pool_id = 1;
+        uint32 pool_id = 1;
     }
-
 }

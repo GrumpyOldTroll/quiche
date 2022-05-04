@@ -2,7 +2,7 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-syntax = "proto2";
+syntax = "proto3";
 
 option optimize_for = LITE_RUNTIME;
 
@@ -20,7 +20,7 @@ import "quic/core/proto/push_channel.proto";
 
 message PushPool {
     
-    required uint32 pool_id = 1;
+    uint32 pool_id = 1;
 
     oneof Command {
         PushChannel channel = 2;
@@ -41,20 +41,20 @@ message PushPool {
 }
 
 message PushPoolFinishChannel {
-    required uint32 channel_id = 1;
+    uint32 channel_id = 1;
 }
 
 message PushPoolMakeChannel {
 
-    required bytes source_ip = 1;
-    required bytes group_ip = 2;
-    required uint32 port = 3;
-    optional uint32 max_rate = 4;
-    optional uint32 max_idle = 5;
+    bytes source_ip = 1;
+    bytes group_ip = 2;
+    uint32 port = 3;
+    uint32 max_rate = 4;
+    uint32 max_idle = 5;
 
     message Response 
     {
-        required uint32 channel_id = 1;
+        uint32 channel_id = 1;
     }
 }
 
@@ -66,5 +66,5 @@ message PushPoolMakeUnicast {
         Supplement = 1;
     }
 
-    optional Type type = 1;
+    Type type = 1;
 }
