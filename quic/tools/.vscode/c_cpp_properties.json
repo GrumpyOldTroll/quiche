@@ -1,0 +1,17 @@
+{
+    "configurations": [
+        {
+            "name": "Linux",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "/usr/include/google/protobuf"
+            ],
+            "defines": [],
+            "compilerPath": "/opt/clang+llvm-13.0.0-x86_64-linux-gnu-ubuntu-20.04/bin/clang++",
+            "cStandard": "gnu17",
+            "cppStandard": "c++20",
+            "intelliSenseMode": "linux-clang-x64"
+        }
+    ],
+    "version": 4
+}
