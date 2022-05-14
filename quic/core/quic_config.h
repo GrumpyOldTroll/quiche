@@ -512,6 +512,9 @@ class QUIC_EXPORT_PRIVATE QuicConfig {
     return received_custom_transport_parameters_;
   }
 
+  bool HasClientSentMulticastParameters(Perspective perspective) const;
+  void SetMulticastParams();
+
  private:
   friend class test::QuicConfigPeer;
 
@@ -658,6 +661,10 @@ class QUIC_EXPORT_PRIVATE QuicConfig {
   // handshake.
   TransportParameters::ParameterMap custom_transport_parameters_to_send_;
   TransportParameters::ParameterMap received_custom_transport_parameters_;
+
+  // Multicast parameters
+  absl::optional<TransportParameters::MulticastClientParams> multicast_client_params_;
+  bool received_multicast_client_params_ = false;
 };
 
 }  // namespace quic

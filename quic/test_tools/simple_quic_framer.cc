@@ -209,6 +209,36 @@ class SimpleFramerVisitor : public QuicFramerVisitorInterface {
     return true;
   }
 
+  bool OnMcChannelJoinFrame(const QuicMcChannelJoinFrame& frame) override {
+    mc_channel_join_frames_.push_back(frame);
+    return true;
+  }
+
+  bool OnMcChannelLeaveFrame(const QuicMcChannelLeaveFrame& frame) override {
+    mc_channel_leave_frames_.push_back(frame);
+    return true;
+  }
+
+  bool OnMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame& frame) override {
+    mc_channel_properties_frames_.push_back(frame);
+    return true;
+  }
+
+  bool OnMcChannelRetireFrame(const QuicMcChannelRetireFrame& frame) override {
+    mc_channel_retire_frames_.push_back(frame);
+    return true;
+  }
+
+  bool OnMcClientChannelStateFrame(const QuicMcClientChannelStateFrame& frame) override {
+    mc_client_channel_state_frames_.push_back(frame);
+    return true;
+  }
+
+  bool OnMcClientLimitsFrame(const QuicMcClientLimitsFrame& frame) override {
+    mc_client_limits_frames_.push_back(frame);
+    return true;
+  }
+
   void OnPacketComplete() override {}
 
   bool IsValidStatelessResetToken(
@@ -312,6 +342,12 @@ class SimpleFramerVisitor : public QuicFramerVisitorInterface {
   std::vector<QuicMessageFrame> message_frames_;
   std::vector<QuicHandshakeDoneFrame> handshake_done_frames_;
   std::vector<QuicAckFrequencyFrame> ack_frequency_frames_;
+  std::vector<QuicMcChannelJoinFrame> mc_channel_join_frames_;
+  std::vector<QuicMcChannelLeaveFrame> mc_channel_leave_frames_;
+  std::vector<QuicMcChannelPropertiesFrame> mc_channel_properties_frames_;
+  std::vector<QuicMcChannelRetireFrame> mc_channel_retire_frames_;
+  std::vector<QuicMcClientChannelStateFrame> mc_client_channel_state_frames_;
+  std::vector<QuicMcClientLimitsFrame> mc_client_limits_frames_;
   std::vector<std::unique_ptr<std::string>> stream_data_;
   std::vector<std::unique_ptr<std::string>> crypto_data_;
   EncryptionLevel last_decrypted_level_;

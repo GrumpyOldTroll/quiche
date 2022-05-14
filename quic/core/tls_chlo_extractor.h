@@ -158,6 +158,24 @@ class QUIC_NO_EXPORT TlsChloExtractor
   bool OnAckFrequencyFrame(const QuicAckFrequencyFrame& /*frame*/) override {
     return true;
   }
+  bool OnMcChannelJoinFrame(const QuicMcChannelJoinFrame& /*frame*/) override {
+    return true;
+  }
+  bool OnMcChannelLeaveFrame(const QuicMcChannelLeaveFrame& /*frame*/) override {
+    return true;
+  }
+  bool OnMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame& /*frame*/) override {
+    return true;
+  }
+  bool OnMcChannelRetireFrame(const QuicMcChannelRetireFrame& /*frame*/) override {
+    return true;
+  }
+  bool OnMcClientChannelStateFrame(const QuicMcClientChannelStateFrame& /*frame*/) override {
+    return true;
+  }
+  bool OnMcClientLimitsFrame(const QuicMcClientLimitsFrame& /*frame*/) override {
+    return true;
+  }
   void OnPacketComplete() override {}
   bool IsValidStatelessResetToken(
       const StatelessResetToken& /*token*/) const override {

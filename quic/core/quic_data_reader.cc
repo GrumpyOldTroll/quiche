@@ -84,6 +84,15 @@ bool QuicDataReader::ReadLengthPrefixedConnectionId(
   return ReadConnectionId(connection_id, connection_id_length);
 }
 
+bool QuicDataReader::ReadLengthPrefixedChannelId(
+    QuicChannelId* channel_id) {
+  uint8_t channel_id_length;
+  if (!ReadUInt8(&channel_id_length)) {
+    return false;
+  }
+  return ReadConnectionId(channel_id, channel_id_length);
+}
+
 QuicVariableLengthIntegerLength QuicDataReader::PeekVarInt62Length() {
   QUICHE_DCHECK_EQ(endianness(), quiche::NETWORK_BYTE_ORDER);
   const unsigned char* next =

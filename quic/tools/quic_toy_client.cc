@@ -186,6 +186,9 @@ DEFINE_QUICHE_COMMAND_LINE_FLAG(
     int32_t, max_inbound_header_list_size, 128 * 1024,
     "Max inbound header list size. 0 means default.");
 
+DEFINE_QUICHE_COMMAND_LINE_FLAG(bool, multicast, false, 
+                                "If true, use multicast.");
+
 namespace quic {
 namespace {
 
@@ -285,6 +288,10 @@ int QuicToyClient::SendRequestsAndPrintResponses(
 
   QuicConfig config;
   std::string connection_options_string = GetQuicFlag(FLAGS_connection_options);
+
+  if (GetQuicFlag(FLAGS_multicast)) {
+    config.SetMulticastParams();
+  }
   if (!connection_options_string.empty()) {
     config.SetConnectionOptionsToSend(
         ParseQuicTagVector(connection_options_string));
@@ -494,6 +501,12 @@ int QuicToyClient::SendRequestsAndPrintResponses(
       }
     }
   }
+
+  if (GetQuicFlag(FLAGS_multicast))
+  {
+    client->WaitForStreamToClose(1);
+  }
+  
 
   return 0;
 }

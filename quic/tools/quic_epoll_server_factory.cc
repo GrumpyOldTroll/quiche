@@ -10,12 +10,15 @@
 
 namespace quic {
 
+QuicEpollServerFactory::QuicEpollServerFactory(
+    QuicEpollServer* epoll_server): epoll_server_(epoll_server) {}
+
 std::unique_ptr<quic::QuicSpdyServerBase> QuicEpollServerFactory::CreateServer(
     quic::QuicSimpleServerBackend* backend,
     std::unique_ptr<quic::ProofSource> proof_source,
     const quic::ParsedQuicVersionVector& supported_versions) {
   return std::make_unique<quic::QuicServer>(std::move(proof_source), backend,
-                                            supported_versions);
+                                            supported_versions, epoll_server_);
 }
 
 }  // namespace quic

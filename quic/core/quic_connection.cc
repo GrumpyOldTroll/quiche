@@ -654,7 +654,6 @@ void QuicConnection::SetFromConfig(const QuicConfig& config) {
     packet_creator_.SetMaxDatagramFrameSize(
         config.ReceivedMaxDatagramFrameSize());
   }
-
   supports_release_time_ =
       writer_ != nullptr && writer_->SupportsReleaseTime() &&
       !config.HasClientSentConnectionOption(kNPCO, perspective_);
@@ -2145,6 +2144,102 @@ bool QuicConnection::OnAckFrequencyFrame(const QuicAckFrequencyFrame& frame) {
         << packet_number_space;
   }
   MaybeUpdateAckTimeout();
+  return true;
+}
+
+bool QuicConnection::OnMcChannelJoinFrame(const QuicMcChannelJoinFrame& frame) {
+  QUIC_LOG(WARNING) << "XXXX(1) Got :" << frame;
+  if (debug_visitor_ != nullptr) {
+    debug_visitor_->OnMcChannelJoinFrame(frame);
+  }
+  if (!UpdatePacketContent(MC_CHANNEL_JOIN_FRAME)) {
+    return false;
+  }
+  QUIC_DLOG(INFO) << ENDPOINT
+                  << "MC_CHANNEL_JOIN_FRAME received for channel: " << frame.channel_id;
+  visitor_->OnMcChannelJoinFrame(frame);
+  stats_.mc_channel_join_frames_received++;
+
+  return true;
+}
+
+bool QuicConnection::OnMcChannelLeaveFrame(const QuicMcChannelLeaveFrame& frame) {
+  QUIC_LOG(WARNING) << "XXXX(2) Got :" << frame;
+  if (debug_visitor_ != nullptr) {
+    debug_visitor_->OnMcChannelLeaveFrame(frame);
+  }
+  if (!UpdatePacketContent(MC_CHANNEL_LEAVE_FRAME)) {
+    return false;
+  }
+  QUIC_DLOG(INFO) << ENDPOINT
+                  << "MC_CHANNEL_LEAVE_FRAME received for channel: " << frame.channel_id;
+  visitor_->OnMcChannelLeaveFrame(frame);
+  stats_.mc_channel_leave_frames_received++;
+
+  return true;
+}
+
+bool QuicConnection::OnMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame& frame) {
+  QUIC_LOG(WARNING) << "XXXX(1) Got :" << frame;
+  if (debug_visitor_ != nullptr) {
+    debug_visitor_->OnMcChannelPropertiesFrame(frame);
+  }
+  if (!UpdatePacketContent(MC_CHANNEL_PROPERTIES_FRAME)) {
+    return false;
+  }
+  QUIC_DLOG(INFO) << ENDPOINT
+                  << "MC_CHANNEL_PROPERTIES_FRAME received for channel: " << frame.channel_id;
+  visitor_->OnMcChannelPropertiesFrame(frame);
+  stats_.mc_channel_properties_frames_received++;
+
+  return true;
+}
+
+bool QuicConnection::OnMcChannelRetireFrame(const QuicMcChannelRetireFrame& frame) {
+  QUIC_LOG(WARNING) << "XXXX(4) Got :" << frame;
+  if (debug_visitor_ != nullptr) {
+    debug_visitor_->OnMcChannelRetireFrame(frame);
+  }
+  if (!UpdatePacketContent(MC_CHANNEL_RETIRE_FRAME)) {
+    return false;
+  }
+  QUIC_DLOG(INFO) << ENDPOINT
+                  << "MC_CHANNEL_RETIRE_FRAME received for channel: " << frame.channel_id;
+  visitor_->OnMcChannelRetireFrame(frame);
+  stats_.mc_channel_retire_frames_received++;
+
+  return true;
+}
+
+bool QuicConnection::OnMcClientLimitsFrame(const QuicMcClientLimitsFrame& frame) {
+  QUIC_LOG(WARNING) << "XXXX(5) Got :" << frame;
+  if (debug_visitor_ != nullptr) {
+    debug_visitor_->OnMcClientLimitsFrame(frame);
+  }
+  if (!UpdatePacketContent(MC_CLIENT_LIMITS_FRAME)) {
+    return false;
+  }
+  QUIC_DLOG(INFO) << ENDPOINT
+                  << "MC_CLIENT_LIMITS_FRAME received";
+  visitor_->OnMcClientLimitsFrame(frame);
+  stats_.mc_client_limits_frames_received++;
+
+  return true;
+}
+
+bool QuicConnection::OnMcClientChannelStateFrame(const QuicMcClientChannelStateFrame& frame) {
+  QUIC_LOG(WARNING) << "XXXX(6) Got :" << frame;
+  if (debug_visitor_ != nullptr) {
+    debug_visitor_->OnMcClientChannelStateFrame(frame);
+  }
+  if (!UpdatePacketContent(MC_CLIENT_CHANNEL_STATE_FRAME)) {
+    return false;
+  }
+  QUIC_DLOG(INFO) << ENDPOINT
+                  << "MC_CLIENT_CHANNEL_STATE_FRAME received";
+  visitor_->OnMcClientChannelStateFrame(frame);
+  stats_.mc_client_channel_state_frames_received++;
+
   return true;
 }
 

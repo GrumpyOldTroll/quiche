@@ -518,6 +518,19 @@ bool QuicConfig::HasClientSentConnectionOption(QuicTag tag,
   return false;
 }
 
+bool QuicConfig::HasClientSentMulticastParameters(Perspective perspective) const {
+  if (perspective == Perspective::IS_SERVER) {
+    if (multicast_client_params_) {
+      QUIC_LOG(WARNING) << "checked multicast server, params: " << multicast_client_params_.value();
+    } else {
+      QUIC_LOG(WARNING) << "checked multicast server, params: " << "(none)";
+    }
+    return static_cast<bool>(multicast_client_params_);
+  }
+  QUIC_LOG(WARNING) << "checked multicast client";
+  return false;
+}
+
 void QuicConfig::SetClientConnectionOptions(
     const QuicTagVector& client_connection_options) {
   client_connection_options_.SetSendValues(client_connection_options);
@@ -1182,12 +1195,16 @@ QuicErrorCode QuicConfig::ProcessPeerHello(
   return error;
 }
 
+void QuicConfig::SetMulticastParams() {
+      multicast_client_params_ = TransportParameters::MulticastClientParams();
+  }
+
 bool QuicConfig::FillTransportParameters(TransportParameters* params) const {
   if (original_destination_connection_id_to_send_.has_value()) {
     params->original_destination_connection_id =
         original_destination_connection_id_to_send_.value();
   }
-
+  
   params->max_idle_timeout_ms.set_value(
       max_idle_timeout_to_send_.ToMilliseconds());
 
@@ -1280,6 +1297,10 @@ bool QuicConfig::FillTransportParameters(TransportParameters* params) const {
   }
 
   params->custom_parameters = custom_transport_parameters_to_send_;
+
+  if (multicast_client_params_.has_value() && !received_multicast_client_params_) {
+    params->multicast_client_params = multicast_client_params_.value();
+  }
 
   return true;
 }
@@ -1411,7 +1432,11 @@ QuicErrorCode QuicConfig::ProcessTransportParameters(
     connection_options_.SetReceivedValues(
         params.google_connection_options.value());
   }
-
+  //TODO: What about resumptions?
+  if (params.multicast_client_params.has_value()) {
+    multicast_client_params_ = params.multicast_client_params.value();
+    received_multicast_client_params_ = true;
+  }
   received_custom_transport_parameters_ = params.custom_parameters;
 
   if (!is_resumption) {

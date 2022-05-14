@@ -113,6 +113,24 @@ class QUIC_EXPORT_PRIVATE QuicConnectionVisitorInterface {
   // Called when a STREAMS_BLOCKED frame has been received from the peer.
   virtual bool OnStreamsBlockedFrame(const QuicStreamsBlockedFrame& frame) = 0;
 
+  // Called when an IETF MC_CHANNEL_JOIN_FRAME has been parsed.
+  virtual bool OnMcChannelJoinFrame(const QuicMcChannelJoinFrame& frame) = 0;
+
+  // Called when an IETF MC_CHANNEL_LEAVE_FRAME has been parsed.
+  virtual bool OnMcChannelLeaveFrame(const QuicMcChannelLeaveFrame& frame) = 0;
+
+  // Called when an IETF MC_CHANNEL_PROPERTIES_FRAME has been parsed.
+  virtual bool OnMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame& frame) = 0;
+
+  // Called when an IETF MC_CHANNEL_RETIRE_FRAME has been parsed.
+  virtual bool OnMcChannelRetireFrame(const QuicMcChannelRetireFrame& frame) = 0;
+
+  // Called when an IETF MC_CLIENT_CHANNEL_STATE_FRAME has been parsed.
+  virtual bool OnMcClientChannelStateFrame(const QuicMcClientChannelStateFrame& frame) = 0;
+
+  // Called when an IETF MC_CLIENT_LIMITS_FRAME has been parsed.
+  virtual bool OnMcClientLimitsFrame(const QuicMcClientLimitsFrame& frame) = 0;
+
   // Called when the connection is closed either locally by the framer, or
   // remotely by the peer.
   virtual void OnConnectionClosed(const QuicConnectionCloseFrame& frame,
@@ -408,6 +426,24 @@ class QUIC_EXPORT_PRIVATE QuicConnectionDebugVisitor
   // Called when an AckFrequencyFrame has been parsed.
   virtual void OnAckFrequencyFrame(const QuicAckFrequencyFrame& /*frame*/) {}
 
+  // Called when an IETF MC_CHANNEL_JOIN_FRAME has been parsed.
+  virtual void OnMcChannelJoinFrame(const QuicMcChannelJoinFrame& frame) {}
+
+  // Called when an IETF MC_CHANNEL_LEAVE_FRAME has been parsed.
+  virtual void OnMcChannelLeaveFrame(const QuicMcChannelLeaveFrame& frame) {}
+
+  // Called when an IETF MC_CHANNEL_PROPERTIES_FRAME has been parsed.
+  virtual void OnMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame& frame) {}
+
+  // Called when an IETF MC_CHANNEL_RETIRE_FRAME has been parsed.
+  virtual void OnMcChannelRetireFrame(const QuicMcChannelRetireFrame& frame) {}
+
+  // Called when an IETF MC_CLIENT_CHANNEL_STATE_FRAME has been parsed.
+  virtual void OnMcClientChannelStateFrame(const QuicMcClientChannelStateFrame& frame) {}
+
+  // Called when an IETF MC_CLIENT_LIMITS_FRAME has been parsed.
+  virtual void OnMcClientLimitsFrame(const QuicMcClientLimitsFrame& frame) {}
+
   // Called when |count| packet numbers have been skipped.
   virtual void OnNPacketNumbersSkipped(QuicPacketCount /*count*/,
                                        QuicTime /*now*/) {}
@@ -688,6 +724,14 @@ class QUIC_EXPORT_PRIVATE QuicConnection
   bool OnMessageFrame(const QuicMessageFrame& frame) override;
   bool OnHandshakeDoneFrame(const QuicHandshakeDoneFrame& frame) override;
   bool OnAckFrequencyFrame(const QuicAckFrequencyFrame& frame) override;
+
+  bool OnMcChannelJoinFrame(const QuicMcChannelJoinFrame& frame) override;
+  bool OnMcChannelLeaveFrame(const QuicMcChannelLeaveFrame& frame) override;
+  bool OnMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame& frame) override;
+  bool OnMcChannelRetireFrame(const QuicMcChannelRetireFrame& frame) override;
+  bool OnMcClientChannelStateFrame(const QuicMcClientChannelStateFrame& frame) override;
+  bool OnMcClientLimitsFrame(const QuicMcClientLimitsFrame& frame) override;
+
   void OnPacketComplete() override;
   bool IsValidStatelessResetToken(
       const StatelessResetToken& token) const override;
@@ -2283,6 +2327,9 @@ class QUIC_EXPORT_PRIVATE QuicConnection
   // fixed.
   absl::optional<QuicWallTime> quic_bug_10511_43_timestamp_;
   std::string quic_bug_10511_43_error_detail_;
+
+  bool using_multicast_ = false;
+  bool sent_initial_multicast_ = false;
 };
 
 }  // namespace quic
