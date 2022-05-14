@@ -27,6 +27,7 @@
 #include "quic/core/crypto/quic_encrypter.h"
 #include "quic/core/proto/cached_network_parameters_proto.h"
 #include "quic/core/quic_bandwidth.h"
+#include "quic/core/quic_channel.h"
 #include "quic/core/quic_config.h"
 #include "quic/core/quic_connection_id.h"
 #include "quic/core/quic_constants.h"
