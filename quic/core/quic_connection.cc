@@ -2180,6 +2180,8 @@ bool QuicConnection::OnMcChannelLeaveFrame(const QuicMcChannelLeaveFrame& frame)
 }
 
 bool QuicConnection::OnMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame& frame) {
+  QuicChannel chanel("23.212.185.4", "232.1.1.1", 9945);
+  chanel.join();
   QUIC_LOG(WARNING) << "XXXX(1) Got :" << frame;
   if (debug_visitor_ != nullptr) {
     debug_visitor_->OnMcChannelPropertiesFrame(frame);
