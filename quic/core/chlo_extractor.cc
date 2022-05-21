@@ -80,9 +80,10 @@ class ChloFramerVisitor : public QuicFramerVisitorInterface,
   bool OnMessageFrame(const QuicMessageFrame& frame) override;
   bool OnHandshakeDoneFrame(const QuicHandshakeDoneFrame& frame) override;
   bool OnAckFrequencyFrame(const QuicAckFrequencyFrame& farme) override;
+  bool OnMcChannelAnnounceFrame(const QuicMcChannelAnnounceFrame& frame) override;
+  bool OnMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame& frame) override;
   bool OnMcChannelJoinFrame(const QuicMcChannelJoinFrame& frame) override;
   bool OnMcChannelLeaveFrame(const QuicMcChannelLeaveFrame& frame) override;
-  bool OnMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame& frame) override;
   bool OnMcChannelRetireFrame(const QuicMcChannelRetireFrame& frame) override;
   bool OnMcClientChannelStateFrame(const QuicMcClientChannelStateFrame& frame) override;
   bool OnMcClientLimitsFrame(const QuicMcClientLimitsFrame& frame) override;
@@ -316,6 +317,11 @@ bool ChloFramerVisitor::OnMcChannelJoinFrame(
 
 bool ChloFramerVisitor::OnMcChannelLeaveFrame(
     const QuicMcChannelLeaveFrame& /*frame*/) {
+  return true;
+}
+
+bool ChloFramerVisitor::OnMcChannelAnnounceFrame(
+    const QuicMcChannelAnnounceFrame& /*frame*/) {
   return true;
 }
 

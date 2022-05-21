@@ -163,9 +163,10 @@ class QUIC_EXPORT_PRIVATE QuicSession
   HandshakeState GetHandshakeState() const override;
   bool OnMaxStreamsFrame(const QuicMaxStreamsFrame& frame) override;
   bool OnStreamsBlockedFrame(const QuicStreamsBlockedFrame& frame) override;
+  bool OnMcChannelAnnounceFrame(const QuicMcChannelAnnounceFrame& frame) override;
+  bool OnMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame& frame) override;
   bool OnMcChannelJoinFrame(const QuicMcChannelJoinFrame& frame) override;
   bool OnMcChannelLeaveFrame(const QuicMcChannelLeaveFrame& frame) override;
-  bool OnMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame& frame) override;
   bool OnMcChannelRetireFrame(const QuicMcChannelRetireFrame& frame) override;
   bool OnMcClientChannelStateFrame(const QuicMcClientChannelStateFrame& frame) override;
   bool OnMcClientLimitsFrame(const QuicMcClientLimitsFrame& frame) override;

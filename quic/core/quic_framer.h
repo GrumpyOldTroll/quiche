@@ -221,14 +221,17 @@ class QUIC_EXPORT_PRIVATE QuicFramerVisitorInterface {
   // Called when an AckFrequencyFrame has been parsed.
   virtual bool OnAckFrequencyFrame(const QuicAckFrequencyFrame& frame) = 0;
 
+  // Called when an IETF MC_CHANNEL_ANNOUNCE_v6_FRAME has been parsed.
+  virtual bool OnMcChannelAnnounceFrame(const QuicMcChannelAnnounceFrame& frame) = 0;
+
+  // Called when an IETF MC_CHANNEL_PROPERTIES_FRAME has been parsed.
+  virtual bool OnMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame& frame) = 0;
+
   // Called when an IETF MC_CHANNEL_JOIN_FRAME has been parsed.
   virtual bool OnMcChannelJoinFrame(const QuicMcChannelJoinFrame& frame) = 0;
 
   // Called when an IETF MC_CHANNEL_LEAVE_FRAME has been parsed.
   virtual bool OnMcChannelLeaveFrame(const QuicMcChannelLeaveFrame& frame) = 0;
-
-  // Called when an IETF MC_CHANNEL_PROPERTIES_FRAME has been parsed.
-  virtual bool OnMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame& frame) = 0;
 
   // Called when an IETF MC_CHANNEL_RETIRE_FRAME has been parsed.
   virtual bool OnMcChannelRetireFrame(const QuicMcChannelRetireFrame& frame) = 0;
@@ -370,10 +373,10 @@ class QUIC_EXPORT_PRIVATE QuicFramer {
                                     QuicByteCount length);
   // Size in bytes of all ack frame fields without the missing packets or ack
   // blocks.
-  static size_t GetMinAckFrameSize(QuicTransportVersion version,
-                                   const QuicAckFrame& ack_frame,
-                                   uint32_t local_ack_delay_exponent,
-                                   bool use_ietf_ack_with_receive_timestamp);
+  size_t GetMinAckFrameSize(QuicTransportVersion version,
+                            const QuicAckFrame& ack_frame,
+                            uint32_t local_ack_delay_exponent,
+                            bool use_ietf_ack_with_receive_timestamp) const;
   // Size in bytes of a stop waiting frame.
   static size_t GetStopWaitingFrameSize(
       QuicPacketNumberLength packet_number_length);
@@ -1102,6 +1105,18 @@ class QUIC_EXPORT_PRIVATE QuicFramer {
                            QuicDataWriter* writer);
   bool ProcessNewTokenFrame(QuicDataReader* reader, QuicNewTokenFrame* frame);
 
+  static size_t GetMcChannelAnnounceFrameSize(const QuicMcChannelAnnounceFrame& frame);
+  bool AppendMcChannelAnnounceFrame(const QuicMcChannelAnnounceFrame& frame,
+                                    QuicDataWriter* writer);
+  bool ProcessMcChannelAnnounceFrame(QuicDataReader* reader, uint64_t frame_type,
+                                     QuicMcChannelAnnounceFrame* frame);
+
+  static size_t GetMcChannelPropertiesFrameSize(const QuicMcChannelPropertiesFrame& frame);
+  bool AppendMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame& frame,
+                                      QuicDataWriter* writer);
+  bool ProcessMcChannelPropertiesFrame(QuicDataReader* reader,
+                                       QuicMcChannelPropertiesFrame* frame);
+
   static size_t GetMcChannelJoinFrameSize(const QuicMcChannelJoinFrame& frame);
   bool AppendMcChannelJoinFrame(const QuicMcChannelJoinFrame& frame,
                                 QuicDataWriter* writer);
@@ -1119,12 +1134,6 @@ class QUIC_EXPORT_PRIVATE QuicFramer {
                                   QuicDataWriter* writer);
   bool ProcessMcChannelRetireFrame(QuicDataReader* reader,
                                    QuicMcChannelRetireFrame* frame);
-
-  static size_t GetMcChannelPropertiesFrameSize(const QuicMcChannelPropertiesFrame& frame);
-  bool AppendMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame& frame,
-                                      QuicDataWriter* writer);
-  bool ProcessMcChannelPropertiesFrame(QuicDataReader* reader,
-                                       QuicMcChannelPropertiesFrame* frame);
 
   static size_t GetMcClientChannelStateFrameSize(const QuicMcClientChannelStateFrame& frame);
 
@@ -1172,6 +1181,7 @@ class QUIC_EXPORT_PRIVATE QuicFramer {
            std::min<uint64_t>(max_receive_timestamps_per_ack_,
                               frame.received_packet_times.size()) > 0;
   }
+  uint64_t GetIetfAckFrameType(const QuicAckFrame& frame) const;
 
   std::string detailed_error_;
   QuicFramerVisitorInterface* visitor_;

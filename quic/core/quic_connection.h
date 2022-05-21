@@ -113,14 +113,17 @@ class QUIC_EXPORT_PRIVATE QuicConnectionVisitorInterface {
   // Called when a STREAMS_BLOCKED frame has been received from the peer.
   virtual bool OnStreamsBlockedFrame(const QuicStreamsBlockedFrame& frame) = 0;
 
+  // Called when an IETF MC_CHANNEL_ANNOUNCE_V4_FRAME or MC_CHANNEL_ANNOUNCE_V6_FRAME has been parsed
+  virtual bool OnMcChannelAnnounceFrame(const QuicMcChannelAnnounceFrame& frame) = 0;
+
+  // Called when an IETF MC_CHANNEL_PROPERTIES_FRAME has been parsed.
+  virtual bool OnMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame& frame) = 0;
+
   // Called when an IETF MC_CHANNEL_JOIN_FRAME has been parsed.
   virtual bool OnMcChannelJoinFrame(const QuicMcChannelJoinFrame& frame) = 0;
 
   // Called when an IETF MC_CHANNEL_LEAVE_FRAME has been parsed.
   virtual bool OnMcChannelLeaveFrame(const QuicMcChannelLeaveFrame& frame) = 0;
-
-  // Called when an IETF MC_CHANNEL_PROPERTIES_FRAME has been parsed.
-  virtual bool OnMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame& frame) = 0;
 
   // Called when an IETF MC_CHANNEL_RETIRE_FRAME has been parsed.
   virtual bool OnMcChannelRetireFrame(const QuicMcChannelRetireFrame& frame) = 0;
@@ -426,14 +429,17 @@ class QUIC_EXPORT_PRIVATE QuicConnectionDebugVisitor
   // Called when an AckFrequencyFrame has been parsed.
   virtual void OnAckFrequencyFrame(const QuicAckFrequencyFrame& /*frame*/) {}
 
+  // Called when an IETF MC_CHANNEL_ANNOUNCE_V4/6_FRAME has been parsed.
+  virtual void OnMcChannelAnnounceFrame(const QuicMcChannelAnnounceFrame& frame) {}
+
+  // Called when an IETF MC_CHANNEL_PROPERTIES_FRAME has been parsed.
+  virtual void OnMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame& frame) {}
+
   // Called when an IETF MC_CHANNEL_JOIN_FRAME has been parsed.
   virtual void OnMcChannelJoinFrame(const QuicMcChannelJoinFrame& frame) {}
 
   // Called when an IETF MC_CHANNEL_LEAVE_FRAME has been parsed.
   virtual void OnMcChannelLeaveFrame(const QuicMcChannelLeaveFrame& frame) {}
-
-  // Called when an IETF MC_CHANNEL_PROPERTIES_FRAME has been parsed.
-  virtual void OnMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame& frame) {}
 
   // Called when an IETF MC_CHANNEL_RETIRE_FRAME has been parsed.
   virtual void OnMcChannelRetireFrame(const QuicMcChannelRetireFrame& frame) {}
@@ -725,9 +731,10 @@ class QUIC_EXPORT_PRIVATE QuicConnection
   bool OnHandshakeDoneFrame(const QuicHandshakeDoneFrame& frame) override;
   bool OnAckFrequencyFrame(const QuicAckFrequencyFrame& frame) override;
 
+  bool OnMcChannelAnnounceFrame(const QuicMcChannelAnnounceFrame& frame) override;
+  bool OnMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame& frame) override;
   bool OnMcChannelJoinFrame(const QuicMcChannelJoinFrame& frame) override;
   bool OnMcChannelLeaveFrame(const QuicMcChannelLeaveFrame& frame) override;
-  bool OnMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame& frame) override;
   bool OnMcChannelRetireFrame(const QuicMcChannelRetireFrame& frame) override;
   bool OnMcClientChannelStateFrame(const QuicMcClientChannelStateFrame& frame) override;
   bool OnMcClientLimitsFrame(const QuicMcClientLimitsFrame& frame) override;

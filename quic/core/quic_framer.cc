@@ -471,18 +471,22 @@ size_t QuicFramer::GetMessageFrameSize(QuicTransportVersion version,
          length;
 }
 
-// static
 size_t QuicFramer::GetMinAckFrameSize(
     QuicTransportVersion version, const QuicAckFrame& ack_frame,
     uint32_t local_ack_delay_exponent,
-    bool use_ietf_ack_with_receive_timestamp) {
+    bool use_ietf_ack_with_receive_timestamp) const {
   if (VersionHasIetfQuicFrames(version)) {
     // The minimal ack frame consists of the following fields: Largest
     // Acknowledged, ACK Delay, 0 ACK Block Count, First ACK Block and either 0
     // Timestamp Range Count or ECN counts.
     // Type byte + largest acked.
-    size_t min_size =
-        kQuicFrameTypeSize +
+    uint64_t type = GetIetfAckFrameType(ack_frame);
+    size_t min_size = QuicDataWriter::GetVarInt62Len(type);
+    if (!ack_frame.channel_id.IsEmpty()) {
+      min_size += kConnectionIdLengthSize + ack_frame.channel_id.length();
+
+    }
+    min_size +=
         QuicDataWriter::GetVarInt62Len(LargestAcked(ack_frame).ToUint64());
     // Ack delay.
     min_size += QuicDataWriter::GetVarInt62Len(
@@ -697,12 +701,14 @@ size_t QuicFramer::GetRetransmittableControlFrameSize(
       return kQuicFrameTypeSize;
     case ACK_FREQUENCY_FRAME:
       return GetAckFrequencyFrameSize(*frame.ack_frequency_frame);
+    case MC_CHANNEL_ANNOUNCE_FRAME:
+      return GetMcChannelAnnounceFrameSize(*frame.mc_channel_announce_frame);
+    case MC_CHANNEL_PROPERTIES_FRAME:
+      return GetMcChannelPropertiesFrameSize(*frame.mc_channel_properties_frame);
     case MC_CHANNEL_JOIN_FRAME:
       return GetMcChannelJoinFrameSize(*frame.mc_channel_join_frame);
     case MC_CHANNEL_LEAVE_FRAME:
       return GetMcChannelLeaveFrameSize(*frame.mc_channel_leave_frame);
-    case MC_CHANNEL_PROPERTIES_FRAME:
-      return GetMcChannelPropertiesFrameSize(*frame.mc_channel_properties_frame);
     case MC_CHANNEL_RETIRE_FRAME:
       return GetMcChannelRetireFrameSize(*frame.mc_channel_retire_frame);
     case MC_CLIENT_CHANNEL_STATE_FRAME:
@@ -716,10 +722,7 @@ size_t QuicFramer::GetRetransmittableControlFrameSize(
     case PADDING_FRAME:
     case MESSAGE_FRAME:
     case CRYPTO_FRAME:
-    case MC_CHANNEL_INTEGRITY_NO_LENGTH_FRAMEX:
     case MC_CHANNEL_INTEGRITY_FRAMEX:
-    case MC_CHANNEL_STREAM_BOUNDARY_FRAMEX:
-    case MC_CHANNEL_ACK_FRAMEX:
     case MC_PATH_RESPONSE_FRAMEX:
     case NUM_FRAME_TYPES:
       QUICHE_DCHECK(false);
@@ -1246,6 +1249,20 @@ size_t QuicFramer::AppendIetfFrames(const QuicFrames& frames,
           return 0;
         }
         break;
+      case MC_CHANNEL_ANNOUNCE_FRAME:
+        if (!AppendMcChannelAnnounceFrame(*frame.mc_channel_announce_frame, writer)) {
+          QUIC_BUG(quic_bug_10850_52)
+              << "McChannelAnnounceFrame failed: " << detailed_error();
+          return 0;
+        }
+        break;
+      case MC_CHANNEL_PROPERTIES_FRAME:
+        if (!AppendMcChannelPropertiesFrame(*frame.mc_channel_properties_frame, writer)) {
+          QUIC_BUG(quic_bug_10850_52)
+              << "McChannelPropertiesFrame failed: " << detailed_error();
+          return 0;
+        }
+        break;
       case MC_CHANNEL_JOIN_FRAME:
         if (!AppendMcChannelJoinFrame(*frame.mc_channel_join_frame, writer)) {
           QUIC_BUG(quic_bug_10850_52)
@@ -1257,13 +1274,6 @@ size_t QuicFramer::AppendIetfFrames(const QuicFrames& frames,
         if (!AppendMcChannelLeaveFrame(*frame.mc_channel_leave_frame, writer)) {
           QUIC_BUG(quic_bug_10850_53)
               << "McChannelLeaveFrame failed: " << detailed_error();
-          return 0;
-        }
-        break;
-      case MC_CHANNEL_PROPERTIES_FRAME:
-        if (!AppendMcChannelPropertiesFrame(*frame.mc_channel_properties_frame, writer)) {
-          QUIC_BUG(quic_bug_10850_52)
-              << "McChannelPropertiesFrame failed: " << detailed_error();
           return 0;
         }
         break;
@@ -1288,10 +1298,7 @@ size_t QuicFramer::AppendIetfFrames(const QuicFrames& frames,
           return 0;
         }
         break;
-      case MC_CHANNEL_INTEGRITY_NO_LENGTH_FRAMEX:
       case MC_CHANNEL_INTEGRITY_FRAMEX:
-      case MC_CHANNEL_STREAM_BOUNDARY_FRAMEX:
-      case MC_CHANNEL_ACK_FRAMEX:
       case MC_PATH_RESPONSE_FRAMEX:
       default:
         set_detailed_error("Tried to append unknown frame type.");
@@ -3476,6 +3483,8 @@ bool QuicFramer::ProcessIetfFrameData(QuicDataReader* reader,
             return RaiseError(QUIC_INVALID_FRAME_DATA);
           }
           ABSL_FALLTHROUGH_INTENDED;
+        case IETF_MC_CHANNEL_ACK_ECN:
+        case IETF_MC_CHANNEL_ACK:
         case IETF_ACK_ECN:
         case IETF_ACK: {
           QuicAckFrame frame;
@@ -3572,6 +3581,39 @@ bool QuicFramer::ProcessIetfFrameData(QuicDataReader* reader,
           }
           break;
         }
+        case IETF_MC_CHANNEL_ANNOUNCE_V4:
+        case IETF_MC_CHANNEL_ANNOUNCE_V6: {
+          QuicMcChannelAnnounceFrame frame;
+          if (!ProcessMcChannelAnnounceFrame(reader, frame_type, &frame)) {
+            return RaiseError(QUIC_INVALID_FRAME_DATA);
+          }
+          QUIC_DVLOG(2) << ENDPOINT << "Processing IETF multicast channel Announce frame "
+                        << frame;
+
+          if (!visitor_->OnMcChannelAnnounceFrame(frame)) {
+            QUIC_DVLOG(1) << ENDPOINT
+                          << "Visitor asked to stop further processing.";
+            // Returning true since there was no parsing error.
+            return true;
+          }
+          break;
+        }
+        case IETF_MC_CHANNEL_PROPERTIES: {
+          QuicMcChannelPropertiesFrame frame;
+          if (!ProcessMcChannelPropertiesFrame(reader, &frame)) {
+            return RaiseError(QUIC_INVALID_FRAME_DATA);
+          }
+          QUIC_DVLOG(2) << ENDPOINT << "Processing IETF multicast channel properties frame "
+                        << frame;
+
+          if (!visitor_->OnMcChannelPropertiesFrame(frame)) {
+            QUIC_DVLOG(1) << ENDPOINT
+                          << "Visitor asked to stop further processing.";
+            // Returning true since there was no parsing error.
+            return true;
+          }
+          break;
+        }
         case IETF_MC_CHANNEL_JOIN: {
           QuicMcChannelJoinFrame frame;
           if (!ProcessMcChannelJoinFrame(reader, &frame)) {
@@ -3597,22 +3639,6 @@ bool QuicFramer::ProcessIetfFrameData(QuicDataReader* reader,
                         << frame;
 
           if (!visitor_->OnMcChannelLeaveFrame(frame)) {
-            QUIC_DVLOG(1) << ENDPOINT
-                          << "Visitor asked to stop further processing.";
-            // Returning true since there was no parsing error.
-            return true;
-          }
-          break;
-        }
-        case IETF_MC_CHANNEL_PROPERTIES: {
-          QuicMcChannelPropertiesFrame frame;
-          if (!ProcessMcChannelPropertiesFrame(reader, &frame)) {
-            return RaiseError(QUIC_INVALID_FRAME_DATA);
-          }
-          QUIC_DVLOG(2) << ENDPOINT << "Processing IETF multicast channel properties frame "
-                        << frame;
-
-          if (!visitor_->OnMcChannelPropertiesFrame(frame)) {
             QUIC_DVLOG(1) << ENDPOINT
                           << "Visitor asked to stop further processing.";
             // Returning true since there was no parsing error.
@@ -3674,8 +3700,6 @@ bool QuicFramer::ProcessIetfFrameData(QuicDataReader* reader,
         }
         case IETF_MC_CHANNEL_INTEGRITY_NO_LENGTHX:
         case IETF_MC_CHANNEL_INTEGRITYX:
-        case IETF_MC_CHANNEL_STREAM_BOUNDARYX:
-        case IETF_MC_CHANNEL_ACKX:
         case IETF_MC_PATH_RESPONSEX: {
           set_detailed_error("Unimplemented mc frame type.");
           QUIC_DLOG(WARNING)
@@ -4118,6 +4142,14 @@ bool QuicFramer::ProcessTimestampsInAckFrame(uint8_t num_received_packets,
 bool QuicFramer::ProcessIetfAckFrame(QuicDataReader* reader,
                                      uint64_t frame_type,
                                      QuicAckFrame* ack_frame) {
+  if (frame_type == IETF_MC_CHANNEL_ACK ||
+      frame_type == IETF_MC_CHANNEL_ACK_ECN) {
+    if (!reader->ReadLengthPrefixedChannelId(&ack_frame->channel_id)) {
+      set_detailed_error("Unable to read mc channel ack frame channel id.");
+      return false;
+    }
+  }
+
   uint64_t largest_acked;
   if (!reader->ReadVarInt62(&largest_acked)) {
     set_detailed_error("Unable to read largest acked.");
@@ -4258,7 +4290,7 @@ bool QuicFramer::ProcessIetfAckFrame(QuicDataReader* reader,
     if (!ProcessIetfTimestampsInAckFrame(ack_frame->largest_acked, reader)) {
       return false;
     }
-  } else if (frame_type == IETF_ACK_ECN) {
+  } else if (frame_type == IETF_ACK_ECN || frame_type == IETF_MC_CHANNEL_ACK_ECN) {
     ack_frame->ecn_counters_populated = true;
     if (!reader->ReadVarInt62(&ack_frame->ect_0_count)) {
       set_detailed_error("Unable to read ack ect_0_count.");
@@ -5515,14 +5547,29 @@ bool QuicFramer::AppendIetfFrameType(const QuicFrame& frame,
     case ACK_FREQUENCY_FRAME:
       type_byte = IETF_ACK_FREQUENCY;
       break;
+    case MC_CHANNEL_ANNOUNCE_FRAME:
+      if (frame.mc_channel_announce_frame->source_ip.IsIPv4() &&
+          frame.mc_channel_announce_frame->group_ip.IsIPv4()) {
+        type_byte = IETF_MC_CHANNEL_ANNOUNCE_V4;
+      } else if (frame.mc_channel_announce_frame->source_ip.IsIPv6() &&
+          frame.mc_channel_announce_frame->group_ip.IsIPv6()) {
+        type_byte = IETF_MC_CHANNEL_ANNOUNCE_V6;
+      } else {
+        QUIC_BUG(quic_bug_10850_75)
+            << "Attempt to generate an announce frame with bad ips: "
+            << frame.mc_channel_announce_frame->source_ip << ", "
+            << frame.mc_channel_announce_frame->group_ip;
+        return false;
+      }
+      break;
+    case MC_CHANNEL_PROPERTIES_FRAME:
+      type_byte = IETF_MC_CHANNEL_PROPERTIES;
+      break;
     case MC_CHANNEL_JOIN_FRAME:
       type_byte = IETF_MC_CHANNEL_JOIN;
       break;
     case MC_CHANNEL_LEAVE_FRAME:
       type_byte = IETF_MC_CHANNEL_LEAVE;
-      break;
-    case MC_CHANNEL_PROPERTIES_FRAME:
-      type_byte = IETF_MC_CHANNEL_PROPERTIES;
       break;
     case MC_CHANNEL_RETIRE_FRAME:
       type_byte = IETF_MC_CHANNEL_RETIRE;
@@ -5533,10 +5580,7 @@ bool QuicFramer::AppendIetfFrameType(const QuicFrame& frame,
     case MC_CLIENT_LIMITS_FRAME:
       type_byte = IETF_MC_CLIENT_LIMITS;
       break;
-    case MC_CHANNEL_INTEGRITY_NO_LENGTH_FRAMEX:
     case MC_CHANNEL_INTEGRITY_FRAMEX:
-    case MC_CHANNEL_STREAM_BOUNDARY_FRAMEX:
-    case MC_CHANNEL_ACK_FRAMEX:
     case MC_PATH_RESPONSE_FRAMEX:
     default:
       QUIC_BUG(quic_bug_10850_75)
@@ -6198,16 +6242,30 @@ bool QuicFramer::AppendStopWaitingFrame(const QuicPacketHeader& header,
   return true;
 }
 
-bool QuicFramer::AppendIetfAckFrameAndTypeByte(const QuicAckFrame& frame,
-                                               QuicDataWriter* writer) {
-  uint8_t type = IETF_ACK;
-  uint64_t ecn_size = 0;
+uint64_t QuicFramer::GetIetfAckFrameType(const QuicAckFrame& frame) const {
+  uint64_t type = IETF_ACK;
+  if (!frame.channel_id.IsEmpty()) {
+    type = IETF_MC_CHANNEL_ACK;
+  }
   if (UseIetfAckWithReceiveTimestamp(frame)) {
     type = IETF_ACK_RECEIVE_TIMESTAMPS;
   } else if (frame.ecn_counters_populated &&
              (frame.ect_0_count || frame.ect_1_count || frame.ecn_ce_count)) {
     // Change frame type to ACK_ECN if any ECN count is available.
-    type = IETF_ACK_ECN;
+    if (frame.channel_id.IsEmpty()) {
+      type = IETF_ACK_ECN;
+    } else {
+      type = IETF_MC_CHANNEL_ACK_ECN;
+    }
+  }
+  return type;
+}
+
+bool QuicFramer::AppendIetfAckFrameAndTypeByte(const QuicAckFrame& frame,
+                                               QuicDataWriter* writer) {
+  uint64_t type = GetIetfAckFrameType(frame);
+  uint64_t ecn_size = 0;
+  if (type == IETF_ACK_ECN || type == IETF_MC_CHANNEL_ACK_ECN) {
     ecn_size = (QuicDataWriter::GetVarInt62Len(frame.ect_0_count) +
                 QuicDataWriter::GetVarInt62Len(frame.ect_1_count) +
                 QuicDataWriter::GetVarInt62Len(frame.ecn_ce_count));
@@ -6216,6 +6274,13 @@ bool QuicFramer::AppendIetfAckFrameAndTypeByte(const QuicAckFrame& frame,
   if (!writer->WriteVarInt62(type)) {
     set_detailed_error("No room for frame-type");
     return false;
+  }
+
+  if (!frame.channel_id.IsEmpty()) {
+    if (!writer->WriteLengthPrefixedChannelId(frame.channel_id)) {
+      set_detailed_error("No room for channel id in ack frame");
+      return false;
+    }
   }
 
   QuicPacketNumber largest_acked = LargestAcked(frame);
@@ -6303,7 +6368,7 @@ bool QuicFramer::AppendIetfAckFrameAndTypeByte(const QuicAckFrame& frame,
                     << ack_block_count << " to " << appended_ack_blocks;
   }
 
-  if (type == IETF_ACK_ECN) {
+  if (type == IETF_ACK_ECN || type == IETF_MC_CHANNEL_ACK_ECN) {
     // Encode the ECN counts.
     if (!writer->WriteVarInt62(frame.ect_0_count)) {
       set_detailed_error("No room for ect_0_count in ack frame");
@@ -6885,219 +6950,8 @@ bool QuicFramer::ProcessRetireConnectionIdFrame(
   return true;
 }
 
-// static
-size_t QuicFramer::GetMcChannelJoinFrameSize(
-    const QuicMcChannelJoinFrame& frame) {
-  return QuicDataWriter::GetVarInt62Len(IETF_MC_CHANNEL_JOIN) +
-         QuicDataWriter::GetVarInt62Len(frame.limits_sn) +
-         QuicDataWriter::GetVarInt62Len(frame.channel_state_sn) +
-         QuicDataWriter::GetVarInt62Len(frame.channel_properties_sn) +
-         kConnectionIdLengthSize + frame.channel_id.length();
-}
-
-bool QuicFramer::AppendMcChannelJoinFrame(
-    const QuicMcChannelJoinFrame& frame, QuicDataWriter* writer) {
-
-  if (!writer->WriteVarInt62(frame.limits_sn)) {
-    set_detailed_error(
-        "Can not write multicast channel join frame client limits sequence number.");
-    return false;
-  }
-
-  if (!writer->WriteVarInt62(frame.channel_state_sn)) {
-    set_detailed_error(
-        "Can not write multicast channel join frame channel state sequence number.");
-    return false;
-  }
-
-  if (!writer->WriteVarInt62(frame.channel_properties_sn)) {
-    set_detailed_error(
-        "Can not write multicast channel join frame channel properties sequence number.");
-    return false;
-  }
-
-  if (!writer->WriteLengthPrefixedChannelId(frame.channel_id)) {
-    set_detailed_error("Can not write multicast channel join frame channel id.");
-    return false;
-  }
-  return true;
-}
-
-bool QuicFramer::ProcessMcChannelJoinFrame(QuicDataReader* reader,
-                                           QuicMcChannelJoinFrame* frame) {
-  if (!reader->ReadVarInt62(&frame->limits_sn)) {
-    set_detailed_error(
-        "Unable to read multicast channel join frame client limits sequence number.");
-    return false;
-  }
-
-  if (!reader->ReadVarInt62(&frame->channel_state_sn)) {
-    set_detailed_error(
-        "Unable to read multicast channel join frame channel state sequence number.");
-    return false;
-  }
-
-  if (!reader->ReadVarInt62(&frame->channel_properties_sn)) {
-    set_detailed_error(
-        "Unable to read multicast channel join frame channel properties sequence number.");
-    return false;
-  }
-
-  if (!reader->ReadLengthPrefixedChannelId(&frame->channel_id)) {
-    set_detailed_error("Unable to read multicast channel join frame channel id.");
-    return false;
-  }
-  return true;
-}
-
-// static
-size_t QuicFramer::GetMcChannelLeaveFrameSize(
-    const QuicMcChannelLeaveFrame& frame) {
-  return QuicDataWriter::GetVarInt62Len(IETF_MC_CHANNEL_LEAVE) +
-         QuicDataWriter::GetVarInt62Len(frame.channel_state_sn) +
-         kConnectionIdLengthSize + frame.channel_id.length() +
-         QuicDataWriter::GetVarInt62Len(frame.after_packet_number);
-}
-
-bool QuicFramer::AppendMcChannelLeaveFrame(
-    const QuicMcChannelLeaveFrame& frame, QuicDataWriter* writer) {
-
-  if (!writer->WriteVarInt62(frame.channel_state_sn)) {
-    set_detailed_error(
-        "Can not write multicast channel leave frame channel state sequence number.");
-    return false;
-  }
-
-  if (!writer->WriteLengthPrefixedChannelId(frame.channel_id)) {
-    set_detailed_error("Can not write multicast channel leave frame channel id.");
-    return false;
-  }
-
-  if (!writer->WriteVarInt62(frame.after_packet_number)) {
-    set_detailed_error(
-        "Can not write multicast channel leave frame after packet number.");
-    return false;
-  }
-  return true;
-}
-
-bool QuicFramer::ProcessMcChannelLeaveFrame(QuicDataReader* reader,
-                                            QuicMcChannelLeaveFrame* frame) {
-  if (!reader->ReadVarInt62(&frame->channel_state_sn)) {
-    set_detailed_error(
-        "Unable to read multicast channel leave frame channel state sequence number.");
-    return false;
-  }
-
-  if (!reader->ReadLengthPrefixedChannelId(&frame->channel_id)) {
-    set_detailed_error("Unable to read multicast channel leave frame channel id.");
-    return false;
-  }
-
-  if (!reader->ReadVarInt62(&frame->after_packet_number)) {
-    set_detailed_error(
-        "Unable to read multicast channel leave frame after packet number.");
-    return false;
-  }
-  return true;
-}
-
-// static
-size_t QuicFramer::GetMcChannelPropertiesFrameSize(
-    const QuicMcChannelPropertiesFrame& frame) {
-  size_t len = QuicDataWriter::GetVarInt62Len(IETF_MC_CHANNEL_PROPERTIES) +
-         QuicDataWriter::GetVarInt62Len(frame.channel_properties_sn) +
-         kConnectionIdLengthSize + frame.channel_id.length() +
-         QuicDataWriter::GetVarInt62Len(frame.from_packet_number) +
-         QuicDataWriter::GetVarInt62Len(frame.contents);
-  if (frame.contents & kPropertiesContents_UntilPacketNumber) {
-    len += QuicDataWriter::GetVarInt62Len(frame.until_packet_number);
-  }
-  if (frame.contents & kPropertiesContents_Addresses) {
-    size_t addr_len;
-    if (frame.contents & kPropertiesContents_IPFamily) {
-      addr_len = 16;  // IP_V6
-    } else {
-      addr_len = 4;  // IP_V4
-    }
-    if (frame.contents & kPropertiesContents_SSM) {
-      len += 2 * addr_len;  // source and group
-    } else {
-      len += addr_len;  // just group
-    }
-    len += 2;  // UDP Port
-  }
-  if (frame.contents & kPropertiesContents_HeaderKey) {
-    len += 2;
-    len += QuicDataWriter::GetVarInt62Len(frame.header_key.size());
-    len += frame.header_key.size();
-  }
-  if (frame.contents & kPropertiesContents_Key) {
-    len += 2;
-    len += QuicDataWriter::GetVarInt62Len(frame.key.size());
-    len += frame.key.size();
-  }
-  if (frame.contents & kPropertiesContents_HashAlgorithm) {
-    len += 2;
-  }
-  if (frame.contents & kPropertiesContents_MaxRate) {
-    len += QuicDataWriter::GetVarInt62Len(frame.max_rate);
-  }
-  if (frame.contents & kPropertiesContents_MaxIdleTime) {
-    len += QuicDataWriter::GetVarInt62Len(frame.max_idle_time);
-  }
-  if (frame.contents & kPropertiesContents_MaxStreams) {
-    len += QuicDataWriter::GetVarInt62Len(frame.max_streams);
-  }
-  if (frame.contents & kPropertiesContents_AckBundleSize) {
-    len += QuicDataWriter::GetVarInt62Len(frame.ack_bundle_size);
-  }
-  return len;
-}
-
-static
-bool CheckKeyAlgorithmSizeLegality(uint16_t aead_algorithm, uint64_t key_size) {
-  // XXXX
-  // TODO: pull this out of the ssl library?
-  // but also set a backstop now just so the other side can't force an infinitely large malloc
-  if (key_size > 32) {
-    return false;
-  }
-  return true;
-}
-
-bool QuicFramer::AppendMcChannelPropertiesFrame(
-    const QuicMcChannelPropertiesFrame& frame, QuicDataWriter* writer) {
-  if (!writer->WriteVarInt62(frame.channel_properties_sn)) {
-    set_detailed_error(
-        "Can not write multicast channel properties frame sequence number.");
-    return false;
-  }
-
-  if (!writer->WriteLengthPrefixedChannelId(frame.channel_id)) {
-    set_detailed_error("Can not write multicast channel properties frame channel id.");
-    return false;
-  }
-
-  if (!writer->WriteVarInt62(frame.from_packet_number)) {
-    set_detailed_error(
-        "Can not write multicast channel properties frame from packet number.");
-    return false;
-  }
-
-  if (!writer->WriteVarInt62(frame.contents)) {
-    set_detailed_error(
-        "Can not write multicast channel properties frame contents field.");
-    return false;
-  }
-  if (frame.contents & kPropertiesContents_UntilPacketNumber) {
-    if (!writer->WriteVarInt62(frame.until_packet_number)) {
-      set_detailed_error(
-          "Can not write multicast channel properties until_packet_number.");
-      return false;
-    }
-  }
-
+/*
+ *
   if (frame.contents & kPropertiesContents_Addresses) {
     uint8_t addr_buf[16];
     size_t addr_len;
@@ -7162,7 +7016,6 @@ bool QuicFramer::AppendMcChannelPropertiesFrame(
       return false;
     }
   }
-
   if (frame.contents & kPropertiesContents_HeaderKey) {
     if (!writer->WriteUInt16(frame.header_aead_algorithm)) {
       set_detailed_error(
@@ -7187,101 +7040,11 @@ bool QuicFramer::AppendMcChannelPropertiesFrame(
           "Can not write multicast channel properties header key");
       return false;
     }
-  }
-  if (frame.contents & kPropertiesContents_Key) {
-    if (!writer->WriteUInt16(frame.aead_algorithm)) {
-      set_detailed_error(
-          "Can not write multicast channel properties aead algorithm");
-      return false;
-    }
 
-    if (!CheckKeyAlgorithmSizeLegality(frame.aead_algorithm, frame.key.size())) {
-      set_detailed_error(
-          "Failed key size check for multicast channel properties frame key.");
-      return false;
-    }
 
-    if (!writer->WriteVarInt62(frame.key.size())) {
-      set_detailed_error(
-          "Can not write multicast channel properties key size.");
-      return false;
-    }
+=========
 
-    if (!writer->WriteBytes(&frame.key[0], frame.key.size())) {
-      set_detailed_error(
-          "Can not write multicast channel properties key");
-      return false;
-    }
-  }
-  if (frame.contents & kPropertiesContents_HashAlgorithm) {
-    if (!writer->WriteUInt16(frame.hash_algorithm)) {
-      set_detailed_error(
-          "Can not write multicast channel properties hash algorithm");
-      return false;
-    }
-  }
-  if (frame.contents & kPropertiesContents_MaxRate) {
-    if (!writer->WriteVarInt62(frame.max_rate)) {
-      set_detailed_error(
-          "Can not write multicast channel properties max rate.");
-      return false;
-    }
-  }
-  if (frame.contents & kPropertiesContents_MaxIdleTime) {
-    if (!writer->WriteVarInt62(frame.max_idle_time)) {
-      set_detailed_error(
-          "Can not write multicast channel properties max idle time.");
-      return false;
-    }
-  }
-  if (frame.contents & kPropertiesContents_MaxStreams) {
-    if (!writer->WriteVarInt62(frame.max_streams)) {
-      set_detailed_error(
-          "Can not write multicast channel properties max streams.");
-      return false;
-    }
-  }
-  if (frame.contents & kPropertiesContents_AckBundleSize) {
-    if (!writer->WriteVarInt62(frame.ack_bundle_size)) {
-      set_detailed_error(
-          "Can not write multicast channel properties ack bundle size.");
-      return false;
-    }
-  }
-  return true;
-}
 
-bool QuicFramer::ProcessMcChannelPropertiesFrame(QuicDataReader* reader,
-    QuicMcChannelPropertiesFrame* frame) {
-  if (!reader->ReadVarInt62(&frame->channel_properties_sn)) {
-    set_detailed_error(
-        "Unable to read multicast channel properties frame sequence number.");
-    return false;
-  }
-
-  if (!reader->ReadLengthPrefixedChannelId(&frame->channel_id)) {
-    set_detailed_error("Unable to read multicast channel properties frame channel id.");
-    return false;
-  }
-
-  if (!reader->ReadVarInt62(&frame->from_packet_number)) {
-    set_detailed_error(
-        "Unable to read multicast channel properties frame from packet number.");
-    return false;
-  }
-
-  if (!reader->ReadVarInt62(&frame->contents)) {
-    set_detailed_error(
-        "Unable to read multicast channel properties frame contents field.");
-    return false;
-  }
-  if (frame->contents & kPropertiesContents_UntilPacketNumber) {
-    if (!reader->ReadVarInt62(&frame->until_packet_number)) {
-      set_detailed_error(
-          "Unable to read multicast channel properties frame until packet number.");
-      return false;
-    }
-  }
   if (frame->contents & kPropertiesContents_Addresses) {
     union {
       in6_addr ip6;
@@ -7354,67 +7117,470 @@ bool QuicFramer::ProcessMcChannelPropertiesFrame(QuicDataReader* reader,
       return false;
     }
   }
-  if (frame->contents & kPropertiesContents_Key) {
-    if (!reader->ReadUInt16(&frame->aead_algorithm)) {
+  }
+*/
+
+// static
+size_t QuicFramer::GetMcChannelAnnounceFrameSize(
+    const QuicMcChannelAnnounceFrame& frame) {
+  size_t ip_len;
+  uint64_t type_bytes;
+  if (frame.source_ip.IsIPv4() && frame.group_ip.IsIPv4()) {
+    ip_len = 4;
+    type_bytes = IETF_MC_CHANNEL_ANNOUNCE_V4;
+  } else if (frame.source_ip.IsIPv6() && frame.group_ip.IsIPv6()) {
+    ip_len = 16;
+    type_bytes = IETF_MC_CHANNEL_ANNOUNCE_V6;
+  } else {
+    ip_len = 16;
+    type_bytes = IETF_MC_CHANNEL_ANNOUNCE_V6;
+  }
+  return QuicDataWriter::GetVarInt62Len(type_bytes) +
+         kConnectionIdLengthSize + frame.channel_id.length() +
+         2 * ip_len +
+         2 +  // UDP port
+         2 +  // Header AEAD algorithm id
+         QuicDataWriter::GetVarInt62Len(frame.header_key.size()) +
+         frame.header_key.size() +
+         2 +  // AEAD algorithm id
+         2;   // hash algorithm id
+}
+
+static
+bool CheckKeyAlgorithmSizeLegality(uint16_t aead_algorithm, uint64_t key_size) {
+  // XXXX
+  // TODO: pull this out of the ssl library?
+  // but also set a backstop now just so the other side can't force an infinitely large malloc
+  if (key_size > 32) {
+    return false;
+  }
+  return true;
+}
+
+bool QuicFramer::AppendMcChannelAnnounceFrame(
+    const QuicMcChannelAnnounceFrame& frame, QuicDataWriter* writer) {
+  size_t ip_len;
+  uint8_t source_ip_buf[16];
+  uint8_t group_ip_buf[16];
+
+  if (frame.source_ip.IsIPv4() && frame.group_ip.IsIPv4()) {
+    ip_len = 4;
+  } else if (frame.source_ip.IsIPv6() && frame.group_ip.IsIPv6()) {
+    ip_len = 16;
+  } else {
+    set_detailed_error(
+        "Mismatched source and group ip for multicast channel announce frame.");
+    return false;
+  }
+  if (!frame.source_ip.ToPackedBuffer(source_ip_buf, ip_len)) {
+    set_detailed_error(
+        "Failed to unpack source ip for multicast channel announce frame.");
+    return false;
+  }
+  if (!frame.group_ip.ToPackedBuffer(group_ip_buf, ip_len)) {
+    set_detailed_error(
+        "Failed to unpack group ip for multicast channel announce frame.");
+    return false;
+  }
+
+  if (!CheckKeyAlgorithmSizeLegality(frame.header_aead_algorithm, frame.header_key.size())) {
+    set_detailed_error(
+        "Failed header key size check for multicast channel announce frame key.");
+    return false;
+  }
+
+  if (!writer->WriteLengthPrefixedChannelId(frame.channel_id)) {
+    set_detailed_error("Can not write multicast channel properties frame channel id.");
+    return false;
+  }
+
+  if (!writer->WriteBytes(source_ip_buf, ip_len)) {
+    set_detailed_error(
+        "Can not write multicast channel announce source ip.");
+    return false;
+  }
+  if (!writer->WriteBytes(group_ip_buf, ip_len)) {
+    set_detailed_error(
+        "Can not write multicast channel announce group ip.");
+    return false;
+  }
+  if (!writer->WriteUInt16(frame.udp_port)) {
+    set_detailed_error(
+        "Can not write multicast channel announce udp port");
+    return false;
+  }
+  if (!writer->WriteUInt16(frame.header_aead_algorithm)) {
+    set_detailed_error(
+        "Can not write multicast channel announce header aead algorithm");
+    return false;
+  }
+  if (!writer->WriteVarInt62(frame.header_key.size())) {
+    set_detailed_error(
+        "Can not write multicast channel announce header key size.");
+    return false;
+  }
+  if (frame.header_key.size() != 0 ) {
+    if (!writer->WriteBytes(&frame.header_key[0], frame.header_key.size())) {
       set_detailed_error(
-          "Unable to read multicast channel properties aead algorithm.");
+          "Can not write multicast channel announce header key");
       return false;
     }
+  }
+  if (!writer->WriteUInt16(frame.aead_algorithm)) {
+    set_detailed_error(
+        "Can not write multicast channel properties aead algorithm");
+    return false;
+  }
+  if (!writer->WriteUInt16(frame.hash_algorithm)) {
+    set_detailed_error(
+        "Can not write multicast channel properties hash algorithm");
+    return false;
+  }
 
-    uint64_t key_size;
-    if (!reader->ReadVarInt62(&key_size)) {
+  return true;
+}
+
+bool QuicFramer::ProcessMcChannelAnnounceFrame(QuicDataReader* reader,
+    uint64_t frame_type, QuicMcChannelAnnounceFrame* frame) {
+  if (!reader->ReadLengthPrefixedChannelId(&frame->channel_id)) {
+    set_detailed_error("Unable to read multicast channel properties frame channel id.");
+    return false;
+  }
+
+  size_t ip_len;
+  uint8_t source_ip_buf[16];
+  uint8_t group_ip_buf[16];
+  switch (frame_type) {
+    case IETF_MC_CHANNEL_ANNOUNCE_V4:
+      ip_len = 4;
+      break;
+    case IETF_MC_CHANNEL_ANNOUNCE_V6:
+      ip_len = 16;
+      break;
+    default:
       set_detailed_error(
-          "Unable to read multicast channel properties frame key size.");
+          "Unable to interpret multicast channel announce frame type.");
+      return false;
+  }
+  if (!reader->ReadBytes(source_ip_buf, ip_len)) {
+    set_detailed_error(
+        "Unable to read multicast channel announce source ip.");
+    return false;
+  }
+  if (!frame->source_ip.FromPackedString((char*)&source_ip_buf[0], ip_len)) {
+    set_detailed_error(
+        "Unable to process multicast channel announce source ip.");
+    return false;
+  }
+  if (!reader->ReadBytes(group_ip_buf, ip_len)) {
+    set_detailed_error(
+        "Unable to read multicast channel announce group ip.");
+    return false;
+  }
+  if (!frame->group_ip.FromPackedString((char*)&group_ip_buf[0], ip_len)) {
+    set_detailed_error(
+        "Unable to process multicast channel announce group ip.");
+    return false;
+  }
+
+  if (!reader->ReadUInt16(&frame->udp_port)) {
+    set_detailed_error(
+        "Unable to read multicast channel announce udp port.");
+    return false;
+  }
+  if (!reader->ReadUInt16(&frame->header_aead_algorithm)) {
+    set_detailed_error(
+        "Unable to read multicast channel announce header aead algorithm.");
+    return false;
+  }
+
+  uint64_t key_size;
+  if (!reader->ReadVarInt62(&key_size)) {
+    set_detailed_error(
+        "Unable to read multicast channel announce header key size.");
+    return false;
+  }
+  if (!CheckKeyAlgorithmSizeLegality(frame->header_aead_algorithm, key_size)) {
+    set_detailed_error(
+        "Unable to use multicast channel announce frame header key.");
+    return false;
+  }
+
+  frame->header_key.resize(key_size);
+  if (key_size != 0) {
+    if (!reader->ReadBytes(&frame->header_key[0], frame->header_key.size())) {
+      set_detailed_error(
+          "Unable to read multicast channel announce frame header key.");
       return false;
     }
+  }
 
-    if (!CheckKeyAlgorithmSizeLegality(frame->aead_algorithm, key_size)) {
+  if (!reader->ReadUInt16(&frame->aead_algorithm)) {
+    set_detailed_error(
+        "Unable to read multicast channel properties aead algorithm.");
+    return false;
+  }
+  if (!reader->ReadUInt16(&frame->hash_algorithm)) {
+    set_detailed_error(
+        "Unable to read multicast channel properties hash algorithm.");
+    return false;
+  }
+  return true;
+}
+
+// static
+size_t QuicFramer::GetMcChannelPropertiesFrameSize(
+    const QuicMcChannelPropertiesFrame& frame) {
+  return QuicDataWriter::GetVarInt62Len(IETF_MC_CHANNEL_PROPERTIES) +
+         kConnectionIdLengthSize + frame.channel_id.length() +
+         QuicDataWriter::GetVarInt62Len(frame.channel_properties_sn) +
+         QuicDataWriter::GetVarInt62Len(frame.from_packet_number) +
+         QuicDataWriter::GetVarInt62Len(frame.until_packet_number) +
+         QuicDataWriter::GetVarInt62Len(frame.key.size()) +
+         frame.key.size() +
+         QuicDataWriter::GetVarInt62Len(frame.max_rate) +
+         QuicDataWriter::GetVarInt62Len(frame.max_idle_time) +
+         QuicDataWriter::GetVarInt62Len(frame.ack_bundle_size);
+}
+
+bool QuicFramer::AppendMcChannelPropertiesFrame(
+    const QuicMcChannelPropertiesFrame& frame, QuicDataWriter* writer) {
+  /*
+  if (!CheckKeyAlgorithmSizeLegality(frame.aead_algorithm, frame.key.size())) {
+    set_detailed_error(
+        "Failed key size check for multicast channel properties frame key.");
+    return false;
+  }
+  */
+
+  if (!writer->WriteLengthPrefixedChannelId(frame.channel_id)) {
+    set_detailed_error("Can not write multicast channel properties frame channel id.");
+    return false;
+  }
+  if (!writer->WriteVarInt62(frame.channel_properties_sn)) {
+    set_detailed_error(
+        "Can not write multicast channel properties frame sequence number.");
+    return false;
+  }
+  if (!writer->WriteVarInt62(frame.from_packet_number)) {
+    set_detailed_error(
+        "Can not write multicast channel properties frame from packet number.");
+    return false;
+  }
+  if (!writer->WriteVarInt62(frame.until_packet_number)) {
+    set_detailed_error(
+        "Can not write multicast channel properties until_packet_number.");
+    return false;
+  }
+  if (!writer->WriteVarInt62(frame.key.size())) {
+    set_detailed_error(
+        "Can not write multicast channel properties key size.");
+    return false;
+  }
+  if (frame.key.size() != 0) {
+    if (!writer->WriteBytes(&frame.key[0], frame.key.size())) {
       set_detailed_error(
-          "Unable to use multicast channel properties frame key.");
+          "Can not write multicast channel properties key");
       return false;
     }
+  }
+  if (!writer->WriteVarInt62(frame.max_rate)) {
+    set_detailed_error(
+        "Can not write multicast channel properties max rate.");
+    return false;
+  }
+  if (!writer->WriteVarInt62(frame.max_idle_time)) {
+    set_detailed_error(
+        "Can not write multicast channel properties max idle time.");
+    return false;
+  }
+  if (!writer->WriteVarInt62(frame.ack_bundle_size)) {
+    set_detailed_error(
+        "Can not write multicast channel properties ack bundle size.");
+    return false;
+  }
 
-    frame->key.resize(key_size);
+  return true;
+}
+
+bool QuicFramer::ProcessMcChannelPropertiesFrame(QuicDataReader* reader,
+    QuicMcChannelPropertiesFrame* frame) {
+  if (!reader->ReadLengthPrefixedChannelId(&frame->channel_id)) {
+    set_detailed_error("Unable to read multicast channel properties frame channel id.");
+    return false;
+  }
+  if (!reader->ReadVarInt62(&frame->channel_properties_sn)) {
+    set_detailed_error(
+        "Unable to read multicast channel properties frame sequence number.");
+    return false;
+  }
+  if (!reader->ReadVarInt62(&frame->from_packet_number)) {
+    set_detailed_error(
+        "Unable to read multicast channel properties frame from packet number.");
+    return false;
+  }
+  if (!reader->ReadVarInt62(&frame->until_packet_number)) {
+    set_detailed_error(
+        "Unable to read multicast channel properties frame until packet number.");
+    return false;
+  }
+
+  /*
+  if (!CheckKeyAlgorithmSizeLegality(frame->aead_algorithm, key_size)) {
+    set_detailed_error(
+        "Unable to use multicast channel properties frame key.");
+    return false;
+  }
+  */
+
+  uint64_t key_size;
+  if (!reader->ReadVarInt62(&key_size)) {
+    set_detailed_error(
+        "Unable to read multicast channel properties frame key size.");
+    return false;
+  }
+
+  frame->key.resize(key_size);
+  if (key_size != 0) {
     if (!reader->ReadBytes(&frame->key[0], frame->key.size())) {
       set_detailed_error(
           "Unable to read multicast channel properties frame key.");
       return false;
     }
   }
-  if (frame->contents & kPropertiesContents_HashAlgorithm) {
-    if (!reader->ReadUInt16(&frame->hash_algorithm)) {
-      set_detailed_error(
-          "Unable to read multicast channel properties hash algorithm.");
-      return false;
-    }
+
+  if (!reader->ReadVarInt62(&frame->max_rate)) {
+    set_detailed_error(
+        "Unable to read multicast channel properties frame max rate.");
+    return false;
   }
-  if (frame->contents & kPropertiesContents_MaxRate) {
-    if (!reader->ReadVarInt62(&frame->max_rate)) {
-      set_detailed_error(
-          "Unable to read multicast channel properties frame max rate.");
-      return false;
-    }
+  if (!reader->ReadVarInt62(&frame->max_idle_time)) {
+    set_detailed_error(
+        "Unable to read multicast channel properties frame idle time.");
+    return false;
   }
-  if (frame->contents & kPropertiesContents_MaxIdleTime) {
-    if (!reader->ReadVarInt62(&frame->max_idle_time)) {
-      set_detailed_error(
-          "Unable to read multicast channel properties frame idle time.");
-      return false;
-    }
+  if (!reader->ReadVarInt62(&frame->ack_bundle_size)) {
+    set_detailed_error(
+        "Unable to read multicast channel properties ack bundle size.");
+    return false;
   }
-  if (frame->contents & kPropertiesContents_MaxStreams) {
-    if (!reader->ReadVarInt62(&frame->max_streams)) {
-      set_detailed_error(
-          "Unable to read multicast channel properties frame streams.");
-      return false;
-    }
+
+  return true;
+}
+
+// static
+size_t QuicFramer::GetMcChannelJoinFrameSize(
+    const QuicMcChannelJoinFrame& frame) {
+  return QuicDataWriter::GetVarInt62Len(IETF_MC_CHANNEL_JOIN) +
+         kConnectionIdLengthSize + frame.channel_id.length() +
+         QuicDataWriter::GetVarInt62Len(frame.limits_sn) +
+         QuicDataWriter::GetVarInt62Len(frame.channel_state_sn) +
+         QuicDataWriter::GetVarInt62Len(frame.channel_properties_sn);
+}
+
+bool QuicFramer::AppendMcChannelJoinFrame(
+    const QuicMcChannelJoinFrame& frame, QuicDataWriter* writer) {
+
+  if (!writer->WriteLengthPrefixedChannelId(frame.channel_id)) {
+    set_detailed_error("Can not write multicast channel join frame channel id.");
+    return false;
   }
-  if (frame->contents & kPropertiesContents_AckBundleSize) {
-    if (!reader->ReadVarInt62(&frame->ack_bundle_size)) {
-      set_detailed_error(
-          "Unable to read multicast channel properties ack bundle size.");
-      return false;
-    }
+
+  if (!writer->WriteVarInt62(frame.limits_sn)) {
+    set_detailed_error(
+        "Can not write multicast channel join frame client limits sequence number.");
+    return false;
+  }
+
+  if (!writer->WriteVarInt62(frame.channel_state_sn)) {
+    set_detailed_error(
+        "Can not write multicast channel join frame channel state sequence number.");
+    return false;
+  }
+
+  if (!writer->WriteVarInt62(frame.channel_properties_sn)) {
+    set_detailed_error(
+        "Can not write multicast channel join frame channel properties sequence number.");
+    return false;
+  }
+  return true;
+}
+
+bool QuicFramer::ProcessMcChannelJoinFrame(QuicDataReader* reader,
+                                           QuicMcChannelJoinFrame* frame) {
+  if (!reader->ReadLengthPrefixedChannelId(&frame->channel_id)) {
+    set_detailed_error("Unable to read multicast channel join frame channel id.");
+    return false;
+  }
+
+  if (!reader->ReadVarInt62(&frame->limits_sn)) {
+    set_detailed_error(
+        "Unable to read multicast channel join frame client limits sequence number.");
+    return false;
+  }
+
+  if (!reader->ReadVarInt62(&frame->channel_state_sn)) {
+    set_detailed_error(
+        "Unable to read multicast channel join frame channel state sequence number.");
+    return false;
+  }
+
+  if (!reader->ReadVarInt62(&frame->channel_properties_sn)) {
+    set_detailed_error(
+        "Unable to read multicast channel join frame channel properties sequence number.");
+    return false;
+  }
+  return true;
+}
+
+// static
+size_t QuicFramer::GetMcChannelLeaveFrameSize(
+    const QuicMcChannelLeaveFrame& frame) {
+  return QuicDataWriter::GetVarInt62Len(IETF_MC_CHANNEL_LEAVE) +
+         kConnectionIdLengthSize + frame.channel_id.length() +
+         QuicDataWriter::GetVarInt62Len(frame.channel_state_sn) +
+         QuicDataWriter::GetVarInt62Len(frame.after_packet_number);
+}
+
+bool QuicFramer::AppendMcChannelLeaveFrame(
+    const QuicMcChannelLeaveFrame& frame, QuicDataWriter* writer) {
+
+  if (!writer->WriteLengthPrefixedChannelId(frame.channel_id)) {
+    set_detailed_error("Can not write multicast channel leave frame channel id.");
+    return false;
+  }
+
+  if (!writer->WriteVarInt62(frame.channel_state_sn)) {
+    set_detailed_error(
+        "Can not write multicast channel leave frame channel state sequence number.");
+    return false;
+  }
+
+  if (!writer->WriteVarInt62(frame.after_packet_number)) {
+    set_detailed_error(
+        "Can not write multicast channel leave frame after packet number.");
+    return false;
+  }
+  return true;
+}
+
+bool QuicFramer::ProcessMcChannelLeaveFrame(QuicDataReader* reader,
+                                            QuicMcChannelLeaveFrame* frame) {
+  if (!reader->ReadLengthPrefixedChannelId(&frame->channel_id)) {
+    set_detailed_error("Unable to read multicast channel leave frame channel id.");
+    return false;
+  }
+
+  if (!reader->ReadVarInt62(&frame->channel_state_sn)) {
+    set_detailed_error(
+        "Unable to read multicast channel leave frame channel state sequence number.");
+    return false;
+  }
+
+  if (!reader->ReadVarInt62(&frame->after_packet_number)) {
+    set_detailed_error(
+        "Unable to read multicast channel leave frame after packet number.");
+    return false;
   }
   return true;
 }
@@ -7449,8 +7615,8 @@ bool QuicFramer::ProcessMcChannelRetireFrame(QuicDataReader* reader,
 size_t QuicFramer::GetMcClientChannelStateFrameSize(
     const QuicMcClientChannelStateFrame& frame) {
   return QuicDataWriter::GetVarInt62Len(IETF_MC_CLIENT_CHANNEL_STATE) +
-         QuicDataWriter::GetVarInt62Len(frame.channel_state_sn) +
          kConnectionIdLengthSize + frame.channel_id.length() +
+         QuicDataWriter::GetVarInt62Len(frame.channel_state_sn) +
          QuicDataWriter::GetVarInt62Len(frame.state) +
          ((frame.state == kQuicClientChannelStateState_Join) ?
             0 :
@@ -7459,14 +7625,14 @@ size_t QuicFramer::GetMcClientChannelStateFrameSize(
 
 bool QuicFramer::AppendMcClientChannelStateFrame(
     const QuicMcClientChannelStateFrame& frame, QuicDataWriter* writer) {
-  if (!writer->WriteVarInt62(frame.channel_state_sn)) {
-    set_detailed_error(
-        "Can not write multicast client channel state frame channel state sequence number.");
+  if (!writer->WriteLengthPrefixedChannelId(frame.channel_id)) {
+    set_detailed_error("Can not write multicast client channel state frame channel id.");
     return false;
   }
 
-  if (!writer->WriteLengthPrefixedChannelId(frame.channel_id)) {
-    set_detailed_error("Can not write multicast client channel state frame channel id.");
+  if (!writer->WriteVarInt62(frame.channel_state_sn)) {
+    set_detailed_error(
+        "Can not write multicast client channel state frame channel state sequence number.");
     return false;
   }
 
@@ -7488,14 +7654,14 @@ bool QuicFramer::AppendMcClientChannelStateFrame(
 
 bool QuicFramer::ProcessMcClientChannelStateFrame(
     QuicDataReader* reader, QuicMcClientChannelStateFrame* frame) {
-  if (!reader->ReadVarInt62(&frame->channel_state_sn)) {
-    set_detailed_error(
-        "Unable to read multicast client channel state frame sequence number.");
+  if (!reader->ReadLengthPrefixedChannelId(&frame->channel_id)) {
+    set_detailed_error("Unable to read multicast client channel state frame channel id.");
     return false;
   }
 
-  if (!reader->ReadLengthPrefixedChannelId(&frame->channel_id)) {
-    set_detailed_error("Unable to read multicast client channel state frame channel id.");
+  if (!reader->ReadVarInt62(&frame->channel_state_sn)) {
+    set_detailed_error(
+        "Unable to read multicast client channel state frame sequence number.");
     return false;
   }
 

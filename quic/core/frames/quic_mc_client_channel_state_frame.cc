@@ -8,13 +8,13 @@ namespace quic {
 
 QuicMcClientChannelStateFrame::QuicMcClientChannelStateFrame(
     QuicControlFrameId control_frame_id,
-    QuicClientChannelStateSequenceNumber channel_state_sn,
     QuicChannelId channel_id,
+    QuicClientChannelStateSequenceNumber channel_state_sn,
     QuicClientChannelStateState state,
     QuicClientChannelStateLeaveReason reason)
     : control_frame_id(control_frame_id),
-      channel_state_sn(channel_state_sn),
       channel_id(channel_id),
+      channel_state_sn(channel_state_sn),
       state(state),
       reason(reason) {
 }
@@ -22,8 +22,8 @@ QuicMcClientChannelStateFrame::QuicMcClientChannelStateFrame(
 std::ostream& operator<<(std::ostream& os,
                          const QuicMcClientChannelStateFrame& frame) {
   os << "{ control_frame_id: " << frame.control_frame_id
-     << ", channel_state_sn: " << frame.channel_state_sn
      << ", channel_id: " << frame.channel_id
+     << ", channel_state_sn: " << frame.channel_state_sn
      << ", state: " << frame.state
      << ", reason: " << frame.reason
      << " }\n";

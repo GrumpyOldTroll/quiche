@@ -209,6 +209,16 @@ class SimpleFramerVisitor : public QuicFramerVisitorInterface {
     return true;
   }
 
+  bool OnMcChannelAnnounceFrame(const QuicMcChannelAnnounceFrame& frame) override {
+    mc_channel_announce_frames_.push_back(frame);
+    return true;
+  }
+
+  bool OnMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame& frame) override {
+    mc_channel_properties_frames_.push_back(frame);
+    return true;
+  }
+
   bool OnMcChannelJoinFrame(const QuicMcChannelJoinFrame& frame) override {
     mc_channel_join_frames_.push_back(frame);
     return true;
@@ -216,11 +226,6 @@ class SimpleFramerVisitor : public QuicFramerVisitorInterface {
 
   bool OnMcChannelLeaveFrame(const QuicMcChannelLeaveFrame& frame) override {
     mc_channel_leave_frames_.push_back(frame);
-    return true;
-  }
-
-  bool OnMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame& frame) override {
-    mc_channel_properties_frames_.push_back(frame);
     return true;
   }
 
@@ -342,9 +347,10 @@ class SimpleFramerVisitor : public QuicFramerVisitorInterface {
   std::vector<QuicMessageFrame> message_frames_;
   std::vector<QuicHandshakeDoneFrame> handshake_done_frames_;
   std::vector<QuicAckFrequencyFrame> ack_frequency_frames_;
+  std::vector<QuicMcChannelAnnounceFrame> mc_channel_announce_frames_;
+  std::vector<QuicMcChannelPropertiesFrame> mc_channel_properties_frames_;
   std::vector<QuicMcChannelJoinFrame> mc_channel_join_frames_;
   std::vector<QuicMcChannelLeaveFrame> mc_channel_leave_frames_;
-  std::vector<QuicMcChannelPropertiesFrame> mc_channel_properties_frames_;
   std::vector<QuicMcChannelRetireFrame> mc_channel_retire_frames_;
   std::vector<QuicMcClientChannelStateFrame> mc_client_channel_state_frames_;
   std::vector<QuicMcClientLimitsFrame> mc_client_limits_frames_;
