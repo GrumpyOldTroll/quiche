@@ -40,8 +40,8 @@ using QuicClientChannelStateLeaveReason = uint64_t;
 struct QUIC_EXPORT_PRIVATE QuicMcClientChannelStateFrame {
   QuicMcClientChannelStateFrame() = default;
   QuicMcClientChannelStateFrame(QuicControlFrameId control_frame_id,
-                                QuicClientChannelStateSequenceNumber channel_state_sn,
                                 QuicChannelId channel_id,
+                                QuicClientChannelStateSequenceNumber channel_state_sn,
                                 QuicClientChannelStateState state,
                                 QuicClientChannelStateLeaveReason reason);
 
@@ -52,8 +52,8 @@ struct QUIC_EXPORT_PRIVATE QuicMcClientChannelStateFrame {
   // A unique identifier of this control frame. 0 when this frame is received,
   // and non-zero when sent.
   QuicControlFrameId control_frame_id = kInvalidControlFrameId;
-  QuicClientChannelStateSequenceNumber channel_state_sn = 0;
   QuicChannelId channel_id = EmptyQuicChannelId();
+  QuicClientChannelStateSequenceNumber channel_state_sn = 0;
   QuicClientChannelStateState state = kQuicClientChannelStateState_Invalid;
   QuicClientChannelStateLeaveReason reason = kQuicClientChannelStateReason_Unspecified;
 };

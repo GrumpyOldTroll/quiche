@@ -46,12 +46,14 @@ std::ostream& operator<<(std::ostream& os, const QuicConnectionStats& s) {
      << s.connection_creation_time.ToDebuggingValue();
   os << " blocked_frames_received: " << s.blocked_frames_received;
   os << " blocked_frames_sent: " << s.blocked_frames_sent;
+  os << " mc_channel_announce_frames_received: " << s.mc_channel_announce_frames_received;
+  os << " mc_channel_announce_frames_sent: " << s.mc_channel_announce_frames_sent;
+  os << " mc_channel_properties_frames_received: " << s.mc_channel_properties_frames_received;
+  os << " mc_channel_properties_frames_sent: " << s.mc_channel_properties_frames_sent;
   os << " mc_channel_join_frames_received: " << s.mc_channel_join_frames_received;
   os << " mc_channel_join_frames_sent: " << s.mc_channel_join_frames_sent;
   os << " mc_channel_leave_frames_received: " << s.mc_channel_leave_frames_received;
   os << " mc_channel_leave_frames_sent: " << s.mc_channel_leave_frames_sent;
-  os << " mc_channel_properties_frames_received: " << s.mc_channel_properties_frames_received;
-  os << " mc_channel_properties_frames_sent: " << s.mc_channel_properties_frames_sent;
   os << " mc_channel_retire_frames_received: " << s.mc_channel_retire_frames_received;
   os << " mc_channel_retire_frames_sent: " << s.mc_channel_retire_frames_sent;
   os << " mc_client_channel_state_frames_received: " << s.mc_client_channel_state_frames_received;

@@ -58,13 +58,39 @@ void QuicControlFrameManager::WriteOrBufferQuicFrame(QuicFrame frame) {
   WriteBufferedFrames();
 }
 
-void QuicControlFrameManager::WriteOrBufferMcChannelProperties(
-    QuicMcChannelPropertiesFrame* frame) {
-  QUIC_DVLOG(1) << "Writing MC_CHANNEL_PROPERTIES_FRAME";
-  frame->control_frame_id = ++last_control_frame_id_;
-  WriteOrBufferQuicFrame(QuicFrame(frame));
+void QuicControlFrameManager::WriteOrBufferMcChannelAnnounce(
+    QuicChannelId channel_id,
+    QuicIpAddress source_ip,
+    QuicIpAddress group_ip,
+    uint16_t udp_port,
+    QuicAEADAlgorithmId header_algorithm,
+    size_t header_key_len,
+    const uint8_t* header_key,
+    QuicAEADAlgorithmId aead_algorithm,
+    QuicHashAlgorithmId hash_algorithm) {
+  QUIC_DVLOG(1) << "Writing MC_CHANNEL_ANNOUNCE_FRAME";
+  WriteOrBufferQuicFrame((QuicFrame(new QuicMcChannelAnnounceFrame(
+      ++last_control_frame_id_, channel_id, source_ip, group_ip,
+      udp_port, header_algorithm, header_key_len, header_key,
+      aead_algorithm, hash_algorithm))));
 }
 
+void QuicControlFrameManager::WriteOrBufferMcChannelProperties(
+    QuicChannelId channel_id,
+    QuicChannelPropertiesSequenceNumber channel_properties_sn,
+    QuicPacketCount from_packet_number,
+    QuicPacketCount until_packet_number,
+    size_t key_len,
+    const uint8_t* key,
+    uint64_t max_rate,
+    uint64_t max_idle_time,
+    uint64_t ack_bundle_size) {
+  QUIC_DVLOG(1) << "Writing MC_CHANNEL_PROPERTIES_FRAME";
+  WriteOrBufferQuicFrame((QuicFrame(new QuicMcChannelPropertiesFrame(
+      ++last_control_frame_id_, channel_id, channel_properties_sn,
+      from_packet_number, until_packet_number, key_len, key,
+      max_rate, max_idle_time, ack_bundle_size))));
+}
 
 void QuicControlFrameManager::WriteOrBufferRstStream(
     QuicStreamId id, QuicResetStreamError error,

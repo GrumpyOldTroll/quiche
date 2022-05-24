@@ -2146,6 +2146,38 @@ bool QuicConnection::OnAckFrequencyFrame(const QuicAckFrequencyFrame& frame) {
   return true;
 }
 
+bool QuicConnection::OnMcChannelAnnounceFrame(const QuicMcChannelAnnounceFrame& frame) {
+  QUIC_LOG(WARNING) << "XXXX(1) Got :" << frame;
+  if (debug_visitor_ != nullptr) {
+    debug_visitor_->OnMcChannelAnnounceFrame(frame);
+  }
+  if (!UpdatePacketContent(MC_CHANNEL_ANNOUNCE_FRAME)) {
+    return false;
+  }
+  QUIC_DLOG(INFO) << ENDPOINT
+                  << "MC_CHANNEL_ANNOUNCE_FRAME received for channel: " << frame.channel_id;
+  visitor_->OnMcChannelAnnounceFrame(frame);
+  stats_.mc_channel_announce_frames_received++;
+
+  return true;
+}
+
+bool QuicConnection::OnMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame& frame) {
+  QUIC_LOG(WARNING) << "XXXX(1) Got :" << frame;
+  if (debug_visitor_ != nullptr) {
+    debug_visitor_->OnMcChannelPropertiesFrame(frame);
+  }
+  if (!UpdatePacketContent(MC_CHANNEL_PROPERTIES_FRAME)) {
+    return false;
+  }
+  QUIC_DLOG(INFO) << ENDPOINT
+                  << "MC_CHANNEL_PROPERTIES_FRAME received for channel: " << frame.channel_id;
+  visitor_->OnMcChannelPropertiesFrame(frame);
+  stats_.mc_channel_properties_frames_received++;
+
+  return true;
+}
+
 bool QuicConnection::OnMcChannelJoinFrame(const QuicMcChannelJoinFrame& frame) {
   QUIC_LOG(WARNING) << "XXXX(1) Got :" << frame;
   if (debug_visitor_ != nullptr) {
@@ -2174,22 +2206,6 @@ bool QuicConnection::OnMcChannelLeaveFrame(const QuicMcChannelLeaveFrame& frame)
                   << "MC_CHANNEL_LEAVE_FRAME received for channel: " << frame.channel_id;
   visitor_->OnMcChannelLeaveFrame(frame);
   stats_.mc_channel_leave_frames_received++;
-
-  return true;
-}
-
-bool QuicConnection::OnMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame& frame) {
-  QUIC_LOG(WARNING) << "XXXX(1) Got :" << frame;
-  if (debug_visitor_ != nullptr) {
-    debug_visitor_->OnMcChannelPropertiesFrame(frame);
-  }
-  if (!UpdatePacketContent(MC_CHANNEL_PROPERTIES_FRAME)) {
-    return false;
-  }
-  QUIC_DLOG(INFO) << ENDPOINT
-                  << "MC_CHANNEL_PROPERTIES_FRAME received for channel: " << frame.channel_id;
-  visitor_->OnMcChannelPropertiesFrame(frame);
-  stats_.mc_channel_properties_frames_received++;
 
   return true;
 }

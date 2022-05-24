@@ -8,24 +8,24 @@ namespace quic {
 
 QuicMcChannelJoinFrame::QuicMcChannelJoinFrame(
     QuicControlFrameId control_frame_id,
+    QuicChannelId channel_id,
     QuicClientLimitsSequenceNumber limits_sn,
     QuicClientChannelStateSequenceNumber channel_state_sn,
-    QuicChannelPropertiesSequenceNumber channel_properties_sn,
-    QuicChannelId channel_id)
+    QuicChannelPropertiesSequenceNumber channel_properties_sn)
     : control_frame_id(control_frame_id),
+      channel_id(channel_id),
       limits_sn(limits_sn),
       channel_state_sn(channel_state_sn),
-      channel_properties_sn(channel_properties_sn),
-      channel_id(channel_id) {
+      channel_properties_sn(channel_properties_sn) {
 }
 
 std::ostream& operator<<(std::ostream& os,
                          const QuicMcChannelJoinFrame& frame) {
   os << "{ control_frame_id: " << frame.control_frame_id
+     << ", channel_id: " << frame.channel_id
      << ", limits_sn: " << frame.limits_sn
      << ", channel_state_sn: " << frame.channel_state_sn
      << ", channel_properties_sn: " << frame.channel_properties_sn
-     << ", channel_id: " << frame.channel_id
      << " }\n";
   return os;
 }

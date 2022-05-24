@@ -48,6 +48,9 @@ std::ostream& operator<<(std::ostream& os, const QuicAckFrame& ack_frame) {
        << ", ect_1_count: " << ack_frame.ect_1_count
        << ", ecn_ce_count: " << ack_frame.ecn_ce_count;
   }
+  if (!ack_frame.channel_id.IsEmpty()) {
+    os << ", channel_id: " << ack_frame.channel_id;
+  }
 
   os << " }\n";
   return os;
