@@ -26,6 +26,7 @@
 #include "quic/core/legacy_quic_stream_id_manager.h"
 #include "quic/core/proto/cached_network_parameters_proto.h"
 #include "quic/core/quic_connection.h"
+#include "quic/core/quic_channel.h"
 #include "quic/core/quic_control_frame_manager.h"
 #include "quic/core/quic_crypto_stream.h"
 #include "quic/core/quic_datagram_queue.h"
@@ -163,9 +164,10 @@ class QUIC_EXPORT_PRIVATE QuicSession
   HandshakeState GetHandshakeState() const override;
   bool OnMaxStreamsFrame(const QuicMaxStreamsFrame& frame) override;
   bool OnStreamsBlockedFrame(const QuicStreamsBlockedFrame& frame) override;
+  bool OnMcChannelAnnounceFrame(const QuicMcChannelAnnounceFrame& frame) override;
+  bool OnMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame& frame) override;
   bool OnMcChannelJoinFrame(const QuicMcChannelJoinFrame& frame) override;
   bool OnMcChannelLeaveFrame(const QuicMcChannelLeaveFrame& frame) override;
-  bool OnMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame& frame) override;
   bool OnMcChannelRetireFrame(const QuicMcChannelRetireFrame& frame) override;
   bool OnMcClientChannelStateFrame(const QuicMcClientChannelStateFrame& frame) override;
   bool OnMcClientLimitsFrame(const QuicMcClientLimitsFrame& frame) override;
@@ -522,6 +524,21 @@ class QUIC_EXPORT_PRIVATE QuicSession
   // Caller does not own the returned stream.
   QuicStream* GetOrCreateStream(const QuicStreamId stream_id);
 
+  // Returns existing channel with stream id = |stream_id|. If no
+  // such channel exists, then a new channel is created and returned.
+  // then a new stream is created and returned. In all other cases, nullptr is
+  // returned.
+  // Caller does not own the returned stream.
+  bool CreateChannelIfNotExistant(QuicChannelId channel_id,
+                                  QuicIpAddress source_ip,
+                                  QuicIpAddress group_ip,
+                                  uint16_t port,
+                                  QuicAEADAlgorithmId  header_aead_algorithm,
+                                  const uint8_t* header_key,
+                                  QuicAEADAlgorithmId aead_algorithm,
+                                  QuicHashAlgorithmId hash_algorithm);
+
+  QuicChannel* GetChannel(QuicChannelId chanel_id);
   // Mark a stream as draining.
   void StreamDraining(QuicStreamId id, bool unidirectional);
 
@@ -647,6 +664,9 @@ class QUIC_EXPORT_PRIVATE QuicSession
  protected:
   using StreamMap =
       absl::flat_hash_map<QuicStreamId, std::unique_ptr<QuicStream>>;
+
+  using ChannelMap =
+          absl::flat_hash_map<QuicChannelId, std::unique_ptr<QuicChannel>, QuicConnectionIdHash>;
 
   using PendingStreamMap =
       absl::flat_hash_map<QuicStreamId, std::unique_ptr<PendingStream>>;
@@ -932,6 +952,9 @@ class QUIC_EXPORT_PRIVATE QuicSession
   // Map from StreamId to PendingStreams for peer-created unidirectional streams
   // which are waiting for the first byte of payload to arrive.
   PendingStreamMap pending_stream_map_;
+
+  // Map from ChannelId to pointers to channels. Owns the channels.
+  ChannelMap channel_map_;
 
   // TODO(fayang): Consider moving LegacyQuicStreamIdManager into
   // UberQuicStreamIdManager.

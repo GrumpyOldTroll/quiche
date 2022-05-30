@@ -7,6 +7,7 @@
 
 #include <ostream>
 
+#include "quic/core/quic_channel_id.h"
 #include "quic/core/quic_interval.h"
 #include "quic/core/quic_interval_set.h"
 #include "quic/core/quic_types.h"
@@ -124,6 +125,8 @@ struct QUIC_EXPORT_PRIVATE QuicAckFrame {
   QuicPacketCount ect_0_count = 0;
   QuicPacketCount ect_1_count = 0;
   QuicPacketCount ecn_ce_count = 0;
+
+  QuicChannelId channel_id = EmptyQuicChannelId();
 };
 
 // The highest acked packet number we've observed from the peer. If no packets

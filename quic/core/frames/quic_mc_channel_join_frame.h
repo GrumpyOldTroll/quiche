@@ -17,10 +17,10 @@ namespace quic {
 struct QUIC_EXPORT_PRIVATE QuicMcChannelJoinFrame {
   QuicMcChannelJoinFrame() = default;
   QuicMcChannelJoinFrame(QuicControlFrameId control_frame_id,
+                         QuicChannelId channel_id,
                          QuicClientLimitsSequenceNumber limits_sn,
                          QuicClientChannelStateSequenceNumber channel_state_sn,
-                         QuicChannelPropertiesSequenceNumber channel_properties_sn,
-                         QuicChannelId channel_id);
+                         QuicChannelPropertiesSequenceNumber channel_properties_sn);
 
   friend QUIC_EXPORT_PRIVATE std::ostream& operator<<(
       std::ostream& os,
@@ -29,10 +29,10 @@ struct QUIC_EXPORT_PRIVATE QuicMcChannelJoinFrame {
   // A unique identifier of this control frame. 0 when this frame is received,
   // and non-zero when sent.
   QuicControlFrameId control_frame_id = kInvalidControlFrameId;
+  QuicChannelId channel_id = EmptyQuicChannelId();
   QuicClientLimitsSequenceNumber limits_sn = 0;
   QuicClientChannelStateSequenceNumber channel_state_sn = 0;
   QuicChannelPropertiesSequenceNumber channel_properties_sn = 0;
-  QuicChannelId channel_id = EmptyQuicChannelId();
 };
 
 }  // namespace quic

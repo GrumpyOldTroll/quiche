@@ -4,36 +4,52 @@
 
 #include "quic/core/quic_framer.h"
 #include "third_party/libmcrx/include/mcrx/libmcrx.h"
+#include "absl/container/flat_hash_map.h"
 
 namespace quic {
 
+struct properties {
+    const uint8_t* key;
+    uint64_t max_rate;
+    uint64_t max_idle_time;
+    uint64_t ack_bundle_size;
+};
+
 class QUIC_EXPORT_PRIVATE QuicChannel {
  public:
-  enum State {idle, joining, joined, timedout};
+  enum State {initialized, unjoined, joined, retired};
 
  QuicChannel(
-      //QuicConnectionId channel_id,
-      const char* source_ip,
-      const char* group_ip,
-      uint16_t port
-      //std::vector<uint16_t> keys,
-      //std::vector<uint16_t> aead_algorithms,
-      //std::vector<uint16_t> hash_algorithms*/
+      QuicChannelId channel_id,
+      QuicIpAddress source_ip,
+      QuicIpAddress group_ip,
+      uint16_t port,
+      QuicAEADAlgorithmId  header_aead_algorithm,
+      const uint8_t* header_key,
+      QuicAEADAlgorithmId aead_algorithm,
+      QuicHashAlgorithmId hash_algorithm
       );
 
  void join();
-
+ bool add_properties( QuicPacketCount from_packet_number,
+                      const uint8_t* key,
+                      uint64_t max_rate,
+                      uint64_t max_idle_time,
+                      uint64_t ack_bundle_size);
  private:
-   //State state_;
+   State state_;
+   //QuicChannelPropertiesSequenceNumber channel_properties_sn;
    // Immutable
-   //QuicConnectionId channel_id_;
-   const char* source_ip_;
-   const char* group_ip_;
+   QuicChannelId channel_id_;
+   QuicIpAddress source_ip_;
+   QuicIpAddress group_ip_;
    uint16_t port_;
+   QuicAEADAlgorithmId  header_aead_algorithm_;
+   const uint8_t* header_key_;
+   QuicAEADAlgorithmId aead_algorithm_;
+   QuicHashAlgorithmId hash_algorithm_;
    // Mutable
-   std::vector<uint16_t> keys_;
-   std::vector<uint16_t> aead_algorithms_;
-   std::vector<uint16_t> hash_algorithms_;
+   absl::flat_hash_map<QuicPacketCount, properties> properties_;
 };
 
 

@@ -17,8 +17,8 @@ namespace quic {
 struct QUIC_EXPORT_PRIVATE QuicMcChannelLeaveFrame {
   QuicMcChannelLeaveFrame() = default;
   QuicMcChannelLeaveFrame(QuicControlFrameId control_frame_id,
-                          QuicClientChannelStateSequenceNumber channel_state_sn,
                           QuicChannelId channel_id,
+                          QuicClientChannelStateSequenceNumber channel_state_sn,
                           QuicPacketCount after_packet_number);
 
   friend QUIC_EXPORT_PRIVATE std::ostream& operator<<(
@@ -28,8 +28,8 @@ struct QUIC_EXPORT_PRIVATE QuicMcChannelLeaveFrame {
   // A unique identifier of this control frame. 0 when this frame is received,
   // and non-zero when sent.
   QuicControlFrameId control_frame_id = kInvalidControlFrameId;
-  QuicClientChannelStateSequenceNumber channel_state_sn = 0;
   QuicChannelId channel_id = EmptyQuicChannelId();
+  QuicClientChannelStateSequenceNumber channel_state_sn = 0;
   QuicPacketCount after_packet_number = 0;
 };
 

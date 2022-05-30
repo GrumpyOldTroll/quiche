@@ -1374,27 +1374,25 @@ void QuicSession::OnConfigNegotiated() {
 
       QuicFrame frame(new QuicMcChannelJoinFrame(++last_control_frame_id_,
           1, 2, 3, QuicChannelId("q",1)))
+
+
+      QuicIpAddress source_ip, group_ip;
+      source_ip.FromString("1.2.3.4");
+      group_ip.FromString("232.1.1.1");
+      control_frame_manager_.WriteOrBufferMcChannelAnnounce(
+          QuicChannelId("q",1), source_ip, group_ip,
+          1200, 17, 1, (uint8_t*)"");
 #endif
       //QuicFrame frame(inner);
       //std::ostringstream dummy;
       //dummy << *inner;
       //
       // XXXX: testing send of frame at startup  --jake 2022-04
-      QuicMcChannelPropertiesFrame* inner = new QuicMcChannelPropertiesFrame(
-          0, 1, QuicChannelId("q",1), 0);
-      inner->SetSSM(QuicIpAddress::Any6(), QuicIpAddress::Any6(), 200);
-      inner->SetUntilPacketNumber(14);
-      uint8_t buf[8] = {0};
-      inner->SetHeaderKey(2, 4, &buf[0]);
-      inner->SetKey(3, true, 8, &buf[0]);
-      inner->SetHashAlgorithm(17);
-      inner->SetMaxRate(2000);
-      inner->SetMaxIdleTime(12000);
-      inner->SetMaxStreams(7);
-      inner->SetAckBundleSize(50);
 
-      QUIC_LOG(WARNING) << "XXXX sending test frame: " << *inner;
-      control_frame_manager_.WriteOrBufferMcChannelProperties(inner);
+      QUIC_LOG(WARNING) << "XXXX sending test frame";
+      control_frame_manager_.WriteOrBufferMcChannelProperties(
+          QuicChannelId("q",1), 14, 72, 78, 1, (uint8_t*)"", 
+          50, 60, 70);
       /*
       bool sent = connection()->SendControlFrame(frame);
       if (sent) {
@@ -2019,6 +2017,33 @@ QuicStream* QuicSession::GetOrCreateStream(const QuicStreamId stream_id) {
 
   return CreateIncomingStream(stream_id);
 }
+//TODO: This should just create a channel, if there already is one with same ID it should be an error
+bool QuicSession::CreateChannelIfNotExistant(QuicChannelId channel_id,
+                                             QuicIpAddress source_ip,
+                                             QuicIpAddress group_ip,
+                                             uint16_t port,
+                                             QuicAEADAlgorithmId  header_aead_algorithm,
+                                             const uint8_t* header_key,
+                                             QuicAEADAlgorithmId aead_algorithm,
+                                             QuicHashAlgorithmId hash_algorithm) {
+
+        ChannelMap::iterator it = channel_map_.find(channel_id);
+        if (it != channel_map_.end()) {
+            return false;
+        }
+        channel_map_.insert(std::make_pair(channel_id, std::unique_ptr<QuicChannel>(new QuicChannel(channel_id, source_ip, group_ip, port,
+                                                                                                    header_aead_algorithm, header_key,
+                                                                                                    aead_algorithm, hash_algorithm))));
+        return true;
+}
+
+QuicChannel* QuicSession::GetChannel(QuicChannelId channel_id) {
+    ChannelMap::iterator it = channel_map_.find(channel_id);
+    if (it != channel_map_.end()) {
+        return NULL;
+    }
+    return it->second.get();
+}
 
 void QuicSession::StreamDraining(QuicStreamId stream_id, bool unidirectional) {
   QUICHE_DCHECK(stream_map_.contains(stream_id));
@@ -2635,6 +2660,27 @@ bool QuicSession::OnMaxStreamsFrame(const QuicMaxStreamsFrame& frame) {
   return true;
 }
 
+bool QuicSession::OnMcChannelAnnounceFrame(const QuicMcChannelAnnounceFrame& frame) {
+    //TODO: Is this the right way to get the header key? Should header key length be used here or is it already framed correctly?
+    const bool new_channel = CreateChannelIfNotExistant(frame.channel_id, frame.source_ip, frame.group_ip, frame.udp_port,
+                                                        frame.header_aead_algorithm, &frame.header_key[0], frame.aead_algorithm,
+                                                        frame.hash_algorithm );
+
+  QUIC_LOG(WARNING) << "XXXX(1.7) Got :" << frame;
+  //TODO: Proper Error handling, what to do if channel already exists?
+  return new_channel;
+}
+
+bool QuicSession::OnMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame& frame) {
+  QuicChannel* channel = GetChannel(frame.channel_id);
+  if(channel == NULL) {
+      return false;
+  }
+  channel->join();
+  QUIC_LOG(WARNING) << "XXXX(1.3) Got :" << frame;
+  return true;
+}
+
 bool QuicSession::OnMcChannelJoinFrame(const QuicMcChannelJoinFrame& frame) {
   QUIC_LOG(WARNING) << "XXXX(1.1) Got :" << frame;
   return true;
@@ -2642,11 +2688,6 @@ bool QuicSession::OnMcChannelJoinFrame(const QuicMcChannelJoinFrame& frame) {
 
 bool QuicSession::OnMcChannelLeaveFrame(const QuicMcChannelLeaveFrame& frame) {
   QUIC_LOG(WARNING) << "XXXX(1.2) Got :" << frame;
-  return true;
-}
-
-bool QuicSession::OnMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame& frame) {
-  QUIC_LOG(WARNING) << "XXXX(1.3) Got :" << frame;
   return true;
 }
 
