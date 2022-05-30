@@ -24,33 +24,47 @@ namespace quic {
     this->hash_algorithm_ = hash_algorithm;
     QUIC_LOG(WARNING) << "Created new quic channel object";
   };
-  void QuicChannel::join() {
-    struct mcrx_ctx* ctx = NULL;
-    mcrx_ctx_new(&ctx);
 
-    struct mcrx_subscription_config conf = MCRX_SUBSCRIPTION_CONFIG_INIT;
-    mcrx_subscription_config_pton(&conf, this->source_ip_.ToString().c_str(), this->group_ip_.ToString().c_str());
-    conf.port = this->port_;
-
-    struct mcrx_subscription *sub;
-    mcrx_subscription_new(ctx, &conf, &sub);
-
-    mcrx_subscription_join(sub);
-
-    QUIC_LOG(WARNING) << "Joined channel";
-
-  }
-  bool QuicChannel::add_properties(QuicPacketCount from_packet_number,
+  bool QuicChannel::addProperties(QuicPacketCount from_packet_number,
                                    const uint8_t* key,
                                    uint64_t max_rate,
                                    uint64_t max_idle_time,
                                    uint64_t ack_bundle_size) {
+      if (this->state_ == QuicChannel::initialized) {
+          this->state_ =  QuicChannel::unjoined;
+      }
       properties props;
       props.key = key;
       props.max_rate = max_rate;
       props.max_idle_time = max_idle_time;
       props.ack_bundle_size = ack_bundle_size;
-      properties_.insert(std::make_pair(from_packet_number, props));
+      properties_map_.insert(std::make_pair(from_packet_number, props));
       return true;
+  }
+
+  QuicChannel::State QuicChannel::getState(){
+      return this->state_;
+  }
+
+  bool QuicChannel::join() {
+        struct mcrx_ctx* ctx = NULL;
+        mcrx_ctx_new(&ctx);
+
+        struct mcrx_subscription_config conf = MCRX_SUBSCRIPTION_CONFIG_INIT;
+        mcrx_subscription_config_pton(&conf, this->source_ip_.ToString().c_str(), this->group_ip_.ToString().c_str());
+        conf.port = this->port_;
+
+        struct mcrx_subscription *sub;
+        mcrx_subscription_new(ctx, &conf, &sub);
+
+        mcrx_subscription_join(sub);
+
+        QUIC_LOG(WARNING) << "Joined channel";
+        this->state_ = QuicChannel::joined;
+        return true;
+    }
+
+  bool QuicChannel::leave() {
+      return false;
   }
 }

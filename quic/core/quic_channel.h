@@ -16,6 +16,9 @@ struct properties {
 };
 
 class QUIC_EXPORT_PRIVATE QuicChannel {
+  protected:
+    using PropertiesMap =
+            absl::flat_hash_map<QuicPacketCount, properties>;
  public:
   enum State {initialized, unjoined, joined, retired};
 
@@ -30,12 +33,15 @@ class QUIC_EXPORT_PRIVATE QuicChannel {
       QuicHashAlgorithmId hash_algorithm
       );
 
- void join();
- bool add_properties( QuicPacketCount from_packet_number,
+ bool addProperties( QuicPacketCount from_packet_number,
                       const uint8_t* key,
                       uint64_t max_rate,
                       uint64_t max_idle_time,
                       uint64_t ack_bundle_size);
+ State getState();
+ bool join();
+ bool leave();
+
  private:
    State state_;
    //QuicChannelPropertiesSequenceNumber channel_properties_sn;
@@ -49,7 +55,7 @@ class QUIC_EXPORT_PRIVATE QuicChannel {
    QuicAEADAlgorithmId aead_algorithm_;
    QuicHashAlgorithmId hash_algorithm_;
    // Mutable
-   absl::flat_hash_map<QuicPacketCount, properties> properties_;
+   PropertiesMap properties_map_;
 };
 
 

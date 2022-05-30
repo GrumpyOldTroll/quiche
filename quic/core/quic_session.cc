@@ -1390,6 +1390,13 @@ void QuicSession::OnConfigNegotiated() {
       // XXXX: testing send of frame at startup  --jake 2022-04
 
       QUIC_LOG(WARNING) << "XXXX sending test frame";
+      QuicIpAddress src;
+      src.FromString("162.250.138.201");
+      QuicIpAddress grp;
+      grp.FromString("232.162.250.139");
+      control_frame_manager_.WriteOrBufferMcChannelAnnounce(
+                QuicChannelId("q",1), src, grp, 90, 1, 1, (uint8_t*)"",
+                1, 1);
       control_frame_manager_.WriteOrBufferMcChannelProperties(
           QuicChannelId("q",1), 14, 72, 78, 1, (uint8_t*)"", 
           50, 60, 70);
@@ -2039,7 +2046,7 @@ bool QuicSession::CreateChannelIfNotExistant(QuicChannelId channel_id,
 
 QuicChannel* QuicSession::GetChannel(QuicChannelId channel_id) {
     ChannelMap::iterator it = channel_map_.find(channel_id);
-    if (it != channel_map_.end()) {
+    if (it == channel_map_.end()) {
         return NULL;
     }
     return it->second.get();
@@ -2676,19 +2683,38 @@ bool QuicSession::OnMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame&
   if(channel == NULL) {
       return false;
   }
-  channel->join();
+  bool add_props = channel->addProperties(frame.from_packet_number, &frame.key[0], frame.max_rate, frame.max_idle_time, frame.ack_bundle_size);
   QUIC_LOG(WARNING) << "XXXX(1.3) Got :" << frame;
-  return true;
+  channel->join();
+  return add_props;
 }
 
 bool QuicSession::OnMcChannelJoinFrame(const QuicMcChannelJoinFrame& frame) {
+  QuicChannel* channel = GetChannel(frame.channel_id);
+  //TODO: Better error handling
+  if(channel == NULL) {
+      return false;
+  }
+  if(channel->getState() != QuicChannel::unjoined) {
+      return false;
+  }
+  bool joined = channel->join();
   QUIC_LOG(WARNING) << "XXXX(1.1) Got :" << frame;
-  return true;
+  return joined;
 }
 
 bool QuicSession::OnMcChannelLeaveFrame(const QuicMcChannelLeaveFrame& frame) {
+  QuicChannel* channel = GetChannel(frame.channel_id);
+  //TODO: Better error handling
+  if(channel == NULL) {
+      return false;
+  }
+  if(channel->getState() != QuicChannel::joined) {
+      return false;
+  }
+  bool left = channel->leave();
   QUIC_LOG(WARNING) << "XXXX(1.2) Got :" << frame;
-  return true;
+  return left;
 }
 
 bool QuicSession::OnMcChannelRetireFrame(const QuicMcChannelRetireFrame& frame) {
