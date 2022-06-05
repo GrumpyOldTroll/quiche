@@ -38,12 +38,18 @@ class QUIC_EXPORT_PRIVATE QuicChannel {
                       uint64_t max_rate,
                       uint64_t max_idle_time,
                       uint64_t ack_bundle_size);
+ QuicChannelId getChannelId();
  State getState();
+ QuicClientChannelStateSequenceNumber getStateSn();
  bool join();
  bool leave();
+ bool incrementStateSn();
 
  private:
    State state_;
+   struct mcrx_subscription* mcrx_subscription_;
+   struct mcrx_subscription_config mcrx_config_;
+   QuicClientChannelStateSequenceNumber channel_state_sn_;
    //QuicChannelPropertiesSequenceNumber channel_properties_sn;
    // Immutable
    QuicChannelId channel_id_;

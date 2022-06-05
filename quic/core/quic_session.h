@@ -538,7 +538,11 @@ class QUIC_EXPORT_PRIVATE QuicSession
                                   QuicAEADAlgorithmId aead_algorithm,
                                   QuicHashAlgorithmId hash_algorithm);
 
-  QuicChannel* GetChannel(QuicChannelId chanel_id);
+  QuicChannel* GetChannel(QuicChannelId channel_id);
+  bool QueueLeavingChannel(QuicChannelId channel_id, QuicPacketCount after_packet_number);
+  bool QueueRetiringChannel(QuicChannelId channel_id, QuicPacketCount after_packet_number);
+  bool RemoveChannel(QuicChannelId channel_id);
+  bool SendClientState(QuicChannel* channel, QuicClientChannelStateState state, QuicClientChannelStateReasonConstants reason);
   // Mark a stream as draining.
   void StreamDraining(QuicStreamId id, bool unidirectional);
 
@@ -666,7 +670,10 @@ class QUIC_EXPORT_PRIVATE QuicSession
       absl::flat_hash_map<QuicStreamId, std::unique_ptr<QuicStream>>;
 
   using ChannelMap =
-          absl::flat_hash_map<QuicChannelId, std::unique_ptr<QuicChannel>, QuicConnectionIdHash>;
+      absl::flat_hash_map<QuicChannelId, std::unique_ptr<QuicChannel>, QuicConnectionIdHash>;
+
+  using PendingLeaveMap =
+      absl::flat_hash_map<QuicChannelId, QuicPacketCount, QuicConnectionIdHash>;
 
   using PendingStreamMap =
       absl::flat_hash_map<QuicStreamId, std::unique_ptr<PendingStream>>;
@@ -955,6 +962,12 @@ class QUIC_EXPORT_PRIVATE QuicSession
 
   // Map from ChannelId to pointers to channels. Owns the channels.
   ChannelMap channel_map_;
+
+  // Map for queued leaves for channels
+  PendingLeaveMap leave_map_;
+
+  // Map for queued retires for channels
+  PendingLeaveMap retire_map_;
 
   // TODO(fayang): Consider moving LegacyQuicStreamIdManager into
   // UberQuicStreamIdManager.

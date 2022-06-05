@@ -132,6 +132,26 @@ class QUIC_EXPORT_PRIVATE QuicControlFrameManager {
       uint64_t max_idle_time,
       uint64_t ack_bundle_size);
 
+  // Tries to send a MC_CHANNEL_JOIN frame.  Buffers the frame if it cannot be sent immediately
+  void WriteOrBufferMcChannelJoin(
+     QuicChannelId channel_id,
+     QuicClientLimitsSequenceNumber limits_sn,
+     QuicClientChannelStateSequenceNumber channel_state_sn,
+     QuicChannelPropertiesSequenceNumber channel_properties_sn);
+
+  // Tries to send a MC_CHANNEL_LEAVE frame.  Buffers the frame if it cannot be sent immediately
+  void WriteOrBufferMcChannelLeave(
+     QuicChannelId channel_id,
+     QuicClientChannelStateSequenceNumber channel_state_sn,
+     QuicPacketCount after_packet_number);
+
+  // Tries to send a MC_CLIENT_CHANNEL_STATE frame.  Buffers the frame if it cannot be sent immediately
+  void WriteOrBufferMcClientChannelState(
+      QuicChannelId channel_id,
+      QuicClientChannelStateSequenceNumber channel_state_sn,
+      QuicClientChannelStateState state,
+      QuicClientChannelStateLeaveReason reason);
+
   // Called when |frame| gets acked. Returns true if |frame| gets acked for the
   // first time, return false otherwise.
   bool OnControlFrameAcked(const QuicFrame& frame);

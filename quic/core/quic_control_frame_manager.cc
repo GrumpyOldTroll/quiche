@@ -92,6 +92,38 @@ void QuicControlFrameManager::WriteOrBufferMcChannelProperties(
       max_rate, max_idle_time, ack_bundle_size))));
 }
 
+void QuicControlFrameManager::WriteOrBufferMcChannelJoin(
+    QuicChannelId channel_id,
+    QuicClientLimitsSequenceNumber limits_sn,
+    QuicClientChannelStateSequenceNumber channel_state_sn,
+    QuicChannelPropertiesSequenceNumber channel_properties_sn) {
+    QUIC_DVLOG(1) << "Writing MC_CHANNEL_JOIN_FRAME";
+    WriteOrBufferQuicFrame((QuicFrame(new QuicMcChannelJoinFrame(
+            ++last_control_frame_id_, channel_id, limits_sn,
+            channel_state_sn, channel_properties_sn))));
+}
+
+void QuicControlFrameManager::WriteOrBufferMcChannelLeave(
+    QuicChannelId channel_id,
+    QuicClientChannelStateSequenceNumber channel_state_sn,
+    QuicPacketCount after_packet_number) {
+    QUIC_DVLOG(1) << "Writing MC_CHANNEL_JOIN_FRAME";
+    WriteOrBufferQuicFrame((QuicFrame(new QuicMcChannelLeaveFrame(
+            ++last_control_frame_id_, channel_id, channel_state_sn,
+            after_packet_number))));
+}
+
+void QuicControlFrameManager::WriteOrBufferMcClientChannelState(
+    QuicChannelId channel_id,
+    QuicClientChannelStateSequenceNumber channel_state_sn,
+    QuicClientChannelStateState state,
+    QuicClientChannelStateLeaveReason reason) {
+    QUIC_DVLOG(1) << "Writing MC_CLIENT_CHANNEL_STATE_FRAME";
+    WriteOrBufferQuicFrame((QuicFrame(new QuicMcClientChannelStateFrame(
+            ++last_control_frame_id_, channel_id, channel_state_sn,
+            state, reason))));
+}
+
 void QuicControlFrameManager::WriteOrBufferRstStream(
     QuicStreamId id, QuicResetStreamError error,
     QuicStreamOffset bytes_written) {

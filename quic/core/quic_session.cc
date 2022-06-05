@@ -774,6 +774,7 @@ void QuicSession::ProcessUdpPacket(const QuicSocketAddress& self_address,
                                    const QuicSocketAddress& peer_address,
                                    const QuicReceivedPacket& packet) {
   QuicConnectionContextSwitcher cs(connection_->context());
+  QUIC_LOG(WARNING) << "Got a new packet";
   connection_->ProcessUdpPacket(self_address, peer_address, packet);
 }
 
@@ -1400,6 +1401,8 @@ void QuicSession::OnConfigNegotiated() {
       control_frame_manager_.WriteOrBufferMcChannelProperties(
           QuicChannelId("q",1), 14, 72, 78, 1, (uint8_t*)"", 
           50, 60, 70);
+      control_frame_manager_.WriteOrBufferMcChannelJoin(QuicChannelId("q",1), 1,1,1);
+      control_frame_manager_.WriteOrBufferMcChannelLeave(QuicChannelId("q",1), 1,0);
       /*
       bool sent = connection()->SendControlFrame(frame);
       if (sent) {
@@ -2052,6 +2055,30 @@ QuicChannel* QuicSession::GetChannel(QuicChannelId channel_id) {
     return it->second.get();
 }
 
+bool QuicSession::QueueLeavingChannel(QuicChannelId channel_id, QuicPacketCount after_packet_number) {
+    leave_map_.insert(std::make_pair(channel_id, after_packet_number));
+    return true;
+}
+
+bool QuicSession::QueueRetiringChannel(QuicChannelId channel_id, QuicPacketCount after_packet_number) {
+    retire_map_.insert(std::make_pair(channel_id, after_packet_number));
+    return true;
+}
+
+bool QuicSession::RemoveChannel(QuicChannelId channel_id) {
+    uint8_t erased = channel_map_.erase(channel_id);
+    if (erased == 1) {
+        return true;
+    }
+    return false;
+}
+
+bool QuicSession::SendClientState(QuicChannel* channel, QuicClientChannelStateState state, QuicClientChannelStateReasonConstants reason) {
+    control_frame_manager_.WriteOrBufferMcClientChannelState(channel->getChannelId(), channel->getStateSn(), state, reason);
+    channel->incrementStateSn();
+    return false;
+}
+
 void QuicSession::StreamDraining(QuicStreamId stream_id, bool unidirectional) {
   QUICHE_DCHECK(stream_map_.contains(stream_id));
   QUIC_DVLOG(1) << ENDPOINT << "Stream " << stream_id << " is draining";
@@ -2674,7 +2701,7 @@ bool QuicSession::OnMcChannelAnnounceFrame(const QuicMcChannelAnnounceFrame& fra
                                                         frame.hash_algorithm );
 
   QUIC_LOG(WARNING) << "XXXX(1.7) Got :" << frame;
-  //TODO: Proper Error handling, what to do if channel already exists?
+  //TODO: Proper Error handling, what to do if channel already exists? new_channel will be false
   return new_channel;
 }
 
@@ -2685,7 +2712,6 @@ bool QuicSession::OnMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame&
   }
   bool add_props = channel->addProperties(frame.from_packet_number, &frame.key[0], frame.max_rate, frame.max_idle_time, frame.ack_bundle_size);
   QUIC_LOG(WARNING) << "XXXX(1.3) Got :" << frame;
-  channel->join();
   return add_props;
 }
 
@@ -2699,6 +2725,9 @@ bool QuicSession::OnMcChannelJoinFrame(const QuicMcChannelJoinFrame& frame) {
       return false;
   }
   bool joined = channel->join();
+  if (joined) {
+      SendClientState(channel, QuicClientChannelStateState::kQuicClientChannelStateState_Join, QuicClientChannelStateReasonConstants::kQuicClientChannelStateReason_Unspecified);
+  }
   QUIC_LOG(WARNING) << "XXXX(1.1) Got :" << frame;
   return joined;
 }
@@ -2712,14 +2741,29 @@ bool QuicSession::OnMcChannelLeaveFrame(const QuicMcChannelLeaveFrame& frame) {
   if(channel->getState() != QuicChannel::joined) {
       return false;
   }
-  bool left = channel->leave();
+  bool left;
+  if (frame.after_packet_number == 0) {
+      left = channel->leave();
+      if (left) {
+          SendClientState(channel, QuicClientChannelStateState::kQuicClientChannelStateState_Left, QuicClientChannelStateReasonConstants::kQuicClientChannelStateReason_ServerRequested);
+      }
+  } else {
+      left = QueueLeavingChannel(frame.channel_id, frame.after_packet_number);
+  }
   QUIC_LOG(WARNING) << "XXXX(1.2) Got :" << frame;
   return left;
 }
 
 bool QuicSession::OnMcChannelRetireFrame(const QuicMcChannelRetireFrame& frame) {
-  QUIC_LOG(WARNING) << "XXXX(1.4) Got :" << frame;
-  return true;
+    /* TODO: Wait for Frame/spec bump
+    if (frame.after_packet_number == 0) {
+        bool retired = RemoveChannel(frame.channel_id);
+    } else {
+        bool retired = QueueRetiringChannel(frame.channel_id, frame.after_packet_number);
+    } */
+    bool retired = RemoveChannel(frame.channel_id);
+    QUIC_LOG(WARNING) << "XXXX(1.4) Got :" << frame;
+    return retired;
 }
 
 bool QuicSession::OnMcClientChannelStateFrame(const QuicMcClientChannelStateFrame& frame) {

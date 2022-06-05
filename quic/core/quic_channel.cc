@@ -14,6 +14,7 @@ namespace quic {
       QuicHashAlgorithmId hash_algorithm
   ) {
     this->state_ = QuicChannel::initialized;
+    this->channel_state_sn_ = 0;
     this->channel_id_ = channel_id;
     this->source_ip_ = source_ip;
     this->group_ip_ = group_ip;
@@ -22,6 +23,12 @@ namespace quic {
     this->header_key_ = header_key;
     this->aead_algorithm_ = aead_algorithm;
     this->hash_algorithm_ = hash_algorithm;
+
+    //Create mcrx context
+    struct mcrx_subscription_config conf = MCRX_SUBSCRIPTION_CONFIG_INIT;
+    mcrx_subscription_config_pton(&conf, source_ip.ToString().c_str(), group_ip.ToString().c_str());
+    conf.port = port;
+    this->mcrx_config_ = conf;
     QUIC_LOG(WARNING) << "Created new quic channel object";
   };
 
@@ -42,29 +49,42 @@ namespace quic {
       return true;
   }
 
+  QuicChannelId QuicChannel::getChannelId(){
+      return this->channel_id_;
+  }
+
   QuicChannel::State QuicChannel::getState(){
       return this->state_;
+  }
+
+  QuicClientChannelStateSequenceNumber QuicChannel::getStateSn(){
+      return this->channel_state_sn_;
   }
 
   bool QuicChannel::join() {
         struct mcrx_ctx* ctx = NULL;
         mcrx_ctx_new(&ctx);
 
-        struct mcrx_subscription_config conf = MCRX_SUBSCRIPTION_CONFIG_INIT;
-        mcrx_subscription_config_pton(&conf, this->source_ip_.ToString().c_str(), this->group_ip_.ToString().c_str());
-        conf.port = this->port_;
-
         struct mcrx_subscription *sub;
-        mcrx_subscription_new(ctx, &conf, &sub);
+        mcrx_subscription_new(ctx, &this->mcrx_config_, &sub);
 
         mcrx_subscription_join(sub);
 
         QUIC_LOG(WARNING) << "Joined channel";
         this->state_ = QuicChannel::joined;
+        this->mcrx_subscription_ = sub;
         return true;
-    }
+  }
 
   bool QuicChannel::leave() {
-      return false;
+      mcrx_subscription_leave(this->mcrx_subscription_);
+      QUIC_LOG(WARNING) << "Left channel";
+      this->state_ =  QuicChannel::unjoined;
+      return true;
+  }
+
+  bool QuicChannel::incrementStateSn() {
+      this->channel_state_sn_++;
+      return true;
   }
 }
