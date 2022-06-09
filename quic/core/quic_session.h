@@ -969,6 +969,9 @@ class QUIC_EXPORT_PRIVATE QuicSession
   // Map for queued retires for channels
   PendingLeaveMap retire_map_;
 
+  // Maximum allowed aggregate rate for multicast channels in this session
+  // size_t max_aggregate_rate_;
+
   // TODO(fayang): Consider moving LegacyQuicStreamIdManager into
   // UberQuicStreamIdManager.
   // Manages stream IDs for Google QUIC.

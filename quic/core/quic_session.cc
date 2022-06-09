@@ -774,7 +774,6 @@ void QuicSession::ProcessUdpPacket(const QuicSocketAddress& self_address,
                                    const QuicSocketAddress& peer_address,
                                    const QuicReceivedPacket& packet) {
   QuicConnectionContextSwitcher cs(connection_->context());
-  QUIC_LOG(WARNING) << "Got a new packet";
   connection_->ProcessUdpPacket(self_address, peer_address, packet);
 }
 
@@ -1401,7 +1400,7 @@ void QuicSession::OnConfigNegotiated() {
       control_frame_manager_.WriteOrBufferMcChannelProperties(
           QuicChannelId("q",1), 14, 72, 78, 1, (uint8_t*)"", 
           50, 60, 70);
-      control_frame_manager_.WriteOrBufferMcChannelJoin(QuicChannelId("q",1), 1,1,1);
+      control_frame_manager_.WriteOrBufferMcChannelJoin(QuicChannelId("q",1), 0,0,14);
       control_frame_manager_.WriteOrBufferMcChannelLeave(QuicChannelId("q",1), 1,0);
       /*
       bool sent = connection()->SendControlFrame(frame);
@@ -2701,7 +2700,7 @@ bool QuicSession::OnMcChannelAnnounceFrame(const QuicMcChannelAnnounceFrame& fra
                                                         frame.hash_algorithm );
 
   QUIC_LOG(WARNING) << "XXXX(1.7) Got :" << frame;
-  //TODO: Proper Error handling, what to do if channel already exists? new_channel will be false
+  //TODO: What is proper error action here? Should the connection itself be closed?
   return new_channel;
 }
 
@@ -2711,22 +2710,35 @@ bool QuicSession::OnMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame&
       return false;
   }
   bool add_props = channel->addProperties(frame.from_packet_number, &frame.key[0], frame.max_rate, frame.max_idle_time, frame.ack_bundle_size);
+  channel->setChannelPropertiesSn(frame.channel_properties_sn);
   QUIC_LOG(WARNING) << "XXXX(1.3) Got :" << frame;
   return add_props;
 }
 
 bool QuicSession::OnMcChannelJoinFrame(const QuicMcChannelJoinFrame& frame) {
   QuicChannel* channel = GetChannel(frame.channel_id);
-  //TODO: Better error handling
+  //TODO: What is proper error action here? Should the connection itself be closed?
   if(channel == NULL) {
+      SendClientState(channel, QuicClientChannelStateState::kQuicClientChannelStateState_DeclinedJoin,
+                      QuicClientChannelStateReasonConstants::kQuicClientChannelStateReason_ProtocolError);
       return false;
   }
   if(channel->getState() != QuicChannel::unjoined) {
+      SendClientState(channel, QuicClientChannelStateState::kQuicClientChannelStateState_DeclinedJoin,
+                      QuicClientChannelStateReasonConstants::kQuicClientChannelStateReason_ProtocolError);
+      return false;
+  }
+  if(!(channel->getStateSn() == frame.channel_state_sn &&
+       channel->getClientPropertiesSn() == frame.channel_properties_sn &&
+       channel->getClientLimitsSn() == frame.limits_sn)) {
+      SendClientState(channel, QuicClientChannelStateState::kQuicClientChannelStateState_DeclinedJoin,
+                      QuicClientChannelStateReasonConstants::kQuicClientChannelStateReason_ProtocolError);
       return false;
   }
   bool joined = channel->join();
   if (joined) {
-      SendClientState(channel, QuicClientChannelStateState::kQuicClientChannelStateState_Join, QuicClientChannelStateReasonConstants::kQuicClientChannelStateReason_Unspecified);
+      SendClientState(channel, QuicClientChannelStateState::kQuicClientChannelStateState_Join,
+                      QuicClientChannelStateReasonConstants::kQuicClientChannelStateReason_Unspecified);
   }
   QUIC_LOG(WARNING) << "XXXX(1.1) Got :" << frame;
   return joined;
@@ -2734,7 +2746,7 @@ bool QuicSession::OnMcChannelJoinFrame(const QuicMcChannelJoinFrame& frame) {
 
 bool QuicSession::OnMcChannelLeaveFrame(const QuicMcChannelLeaveFrame& frame) {
   QuicChannel* channel = GetChannel(frame.channel_id);
-  //TODO: Better error handling
+  //TODO: What is proper error action here? Should the connection itself be closed?
   if(channel == NULL) {
       return false;
   }

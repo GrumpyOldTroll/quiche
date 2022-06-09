@@ -15,6 +15,8 @@ namespace quic {
   ) {
     this->state_ = QuicChannel::initialized;
     this->channel_state_sn_ = 0;
+    this->limits_sn_ = 0;
+    this->channel_properties_sn_ = 0;
     this->channel_id_ = channel_id;
     this->source_ip_ = source_ip;
     this->group_ip_ = group_ip;
@@ -49,6 +51,10 @@ namespace quic {
       return true;
   }
 
+  void QuicChannel::setChannelPropertiesSn(QuicChannelPropertiesSequenceNumber sn) {
+      this->channel_properties_sn_ = sn;
+  }
+
   QuicChannelId QuicChannel::getChannelId(){
       return this->channel_id_;
   }
@@ -61,6 +67,14 @@ namespace quic {
       return this->channel_state_sn_;
   }
 
+  QuicClientLimitsSequenceNumber QuicChannel::getClientLimitsSn(){
+      return this->limits_sn_;
+  }
+
+  QuicChannelPropertiesSequenceNumber QuicChannel::getClientPropertiesSn(){
+      return this->channel_properties_sn_;
+  }
+
   bool QuicChannel::join() {
         struct mcrx_ctx* ctx = NULL;
         mcrx_ctx_new(&ctx);
@@ -70,21 +84,30 @@ namespace quic {
 
         mcrx_subscription_join(sub);
 
-        QUIC_LOG(WARNING) << "Joined channel";
         this->state_ = QuicChannel::joined;
         this->mcrx_subscription_ = sub;
+        QUIC_LOG(WARNING) << "Joined channel: " << sub;
         return true;
   }
 
   bool QuicChannel::leave() {
+      //TODO: This seems to throw a "libmcrx: mcrx_prv_remove_socket_cb: close() error: Bad file descriptor" error, but the fd is the same as on the join?
       mcrx_subscription_leave(this->mcrx_subscription_);
-      QUIC_LOG(WARNING) << "Left channel";
+      QUIC_LOG(WARNING) << "Left channel: " << this->mcrx_subscription_;
       this->state_ =  QuicChannel::unjoined;
       return true;
   }
 
-  bool QuicChannel::incrementStateSn() {
+  void QuicChannel::incrementStateSn() {
       this->channel_state_sn_++;
-      return true;
   }
+
+  /* properites might just be keys from now on so leave for now
+  properties QuicChannel::getPropertiesForPacket(QuicPacketCount) {
+
+  }
+
+  const uint8_t* QuicChannel::getKeyForPacket(QuicPacketCount) {
+
+  } */
 }
