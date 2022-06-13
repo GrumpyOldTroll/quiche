@@ -28,6 +28,7 @@
 #include "quic/core/crypto/null_encrypter.h"
 #include "quic/core/crypto/quic_decrypter.h"
 #include "quic/core/crypto/quic_encrypter.h"
+#include "quic/core/crypto/quic_mc_decrypter.h"
 #include "quic/core/crypto/quic_random.h"
 #include "quic/core/frames/quic_ack_frequency_frame.h"
 #include "quic/core/quic_connection_id.h"
@@ -5229,6 +5230,37 @@ bool QuicFramer::DecryptPayload(size_t udp_packet_length,
   }
 
   if (!success) {
+    QUIC_DVLOG(1) << ENDPOINT << "DecryptPacket failed for: " << header;
+    return false;
+  }
+
+  return true;
+}
+
+bool QuicFramer::DecryptMulticastPayload(size_t udp_packet_length,
+                                         absl::string_view encrypted,
+                                         absl::string_view associated_data,
+                                         const QuicPacketHeader& header,
+                                         char* decrypted_buffer, size_t buffer_length,
+                                         size_t* decrypted_length) {
+  auto it = mc_decrypters_.find(header.destination_connection_id);
+  if (it == mc_decrypters_.end() || it->second == nullptr) {
+    QUIC_BUG(quic_bug_10850_72)
+        << "Attempting to decrypt multicast packet without decrypter, "
+        << " version:" << version();
+    return false;
+  }
+
+  QuicMcDecrypter* decrypter = it->second.get();
+
+  bool success = decrypter->DecryptPacket(
+      header.packet_number.ToUint64(), associated_data, encrypted,
+      decrypted_buffer, decrypted_length, buffer_length);
+
+  if (success) {
+    visitor_->OnDecryptedPacket(udp_packet_length, ENCRYPTION_FORWARD_SECURE);
+  }
+  else {
     QUIC_DVLOG(1) << ENDPOINT << "DecryptPacket failed for: " << header;
     return false;
   }

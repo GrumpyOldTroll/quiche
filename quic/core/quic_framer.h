@@ -11,10 +11,13 @@
 #include <string>
 
 #include "absl/strings/string_view.h"
+#include "absl/container/flat_hash_map.h"
 #include "quic/core/crypto/quic_decrypter.h"
 #include "quic/core/crypto/quic_encrypter.h"
+#include "quic/core/crypto/quic_mc_decrypter.h"
 #include "quic/core/crypto/quic_random.h"
 #include "quic/core/quic_connection_id.h"
+#include "quic/core/quic_channel_id.h"
 #include "quic/core/quic_packets.h"
 #include "quic/core/quic_types.h"
 #include "quic/platform/api/quic_export.h"
@@ -929,6 +932,14 @@ class QUIC_EXPORT_PRIVATE QuicFramer {
                       size_t* decrypted_length,
                       EncryptionLevel* decrypted_level);
 
+  bool DecryptMulticastPayload(size_t udp_packet_length,
+                               absl::string_view encrypted,
+                               absl::string_view associated_data,
+                               const QuicPacketHeader& header,
+                               char* decrypted_buffer,
+                               size_t buffer_length,
+                               size_t* decrypted_length);
+
   // Returns the full packet number from the truncated
   // wire format version and the last seen packet number.
   uint64_t CalculatePacketNumberFromWire(
@@ -1259,6 +1270,11 @@ class QUIC_EXPORT_PRIVATE QuicFramer {
   // Decrypter for the next key phase. May be null if next keys haven't been
   // generated yet.
   std::unique_ptr<QuicDecrypter> next_decrypter_;
+
+  // Mapping from channel ID to the multicast decrypter associated with the
+  // channel, which handles key selection and management by packet number.
+  absl::flat_hash_map<QuicConnectionId, std::unique_ptr<QuicMcDecrypter>,
+      QuicConnectionIdHash> mc_decrypters_;
 
   // If this is a framer of a connection, this is the packet number of first
   // sending packet. If this is a framer of a framer of dispatcher, this is the
