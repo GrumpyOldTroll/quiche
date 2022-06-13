@@ -1273,8 +1273,8 @@ class QUIC_EXPORT_PRIVATE QuicFramer {
 
   // Mapping from channel ID to the multicast decrypter associated with the
   // channel, which handles key selection and management by packet number.
-  absl::flat_hash_map<QuicConnectionId, std::unique_ptr<QuicMcDecrypter>,
-      QuicConnectionIdHash> mc_decrypters_;
+  absl::flat_hash_map<QuicChannelId, std::unique_ptr<QuicMcDecrypter>,
+      QuicChannelIdHash> mc_decrypters_;
 
   // If this is a framer of a connection, this is the packet number of first
   // sending packet. If this is a framer of a framer of dispatcher, this is the

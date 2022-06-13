@@ -27,11 +27,14 @@ bool QuicMcDecrypter::SetKeyAndIVForPacketRange(absl::string_view key,
   }
 
   if (until_packet_number == 0) {
-    decrypters_.erase(decrypters_.lower_bound(from_packet_number), decrypters.end());
+    decrypters_.erase(decrypters_.lower_bound(from_packet_number), decrypters_.end());
   }
   else {
-    auto it = decrypters_.upper_bound(until_packet_number) - 1;
-    decrypters_[until_packet_number + 1] = *it;
+    auto it = decrypters_.upper_bound(until_packet_number);
+    if (it != decrypters_.begin()) {
+      it--;
+      decrypters_[until_packet_number + 1] = std::move(it->second);
+    }
     decrypters_.erase(decrypters_.lower_bound(from_packet_number),
                       decrypters_.upper_bound(until_packet_number));
   }
@@ -39,7 +42,7 @@ bool QuicMcDecrypter::SetKeyAndIVForPacketRange(absl::string_view key,
   decrypter->SetHeaderProtectionKey(header_key_);
   decrypter->SetKey(key);
   decrypter->SetIV(iv);
-  decrypters_[from_packet_number] = std::move(decrypter);
+  decrypters_.emplace(from_packet_number, std::move(decrypter));
 
   return true;
 }
@@ -47,7 +50,8 @@ bool QuicMcDecrypter::SetKeyAndIVForPacketRange(absl::string_view key,
 void QuicMcDecrypter::DiscardObsoleteKeys(QuicPacketCount before_packet_number) {
   auto it = decrypters_.upper_bound(before_packet_number);
   if (it != decrypters_.begin()) {
-    decrypters.erase(decrypters.begin(), it - 1);
+    it--;
+    decrypters_.erase(decrypters_.begin(), it);
   }
 }
 
@@ -58,32 +62,33 @@ bool QuicMcDecrypter::DecryptPacket(uint64_t packet_number,
                                     size_t* output_length,
                                     size_t max_output_length) {
   auto it = decrypters_.lower_bound(packet_number);
-  if (it == decrypters_.end() || *it == nullptr) {
+  if (it == decrypters_.end() || it->second == nullptr) {
     return 0;
   }
-  return (*it)->DecryptPacker(packet_number, associated_data, ciphertext, output,
-                              output_length, max_output_length);
+  return it->second->DecryptPacket(packet_number, associated_data, ciphertext, output,
+                                   output_length, max_output_length);
 }
 
 bool QuicMcDecrypter::SetHeaderProtectionKey(absl::string_view key) {
   header_key_ = key;
+  return true;
 }
 
 size_t QuicMcDecrypter::GetKeySize() const {
-  if (decrypters_.empty() || *decrypters_.begin() == nullptr) {
-    return QuicDecrypter::Create(verison_, alg_)->GetKeySize();
+  if (decrypters_.empty() || decrypters_.begin()->second == nullptr) {
+    return QuicDecrypter::Create(version_, alg_)->GetKeySize();
   }
   else {
-    return *(decrypters_.begin())->GetKeySize();
+    return decrypters_.begin()->second->GetKeySize();
   }
 }
 
 size_t QuicMcDecrypter::GetIVSize() const {
-  if (decrypters_.empty() || *decrypters_.begin() == nullptr) {
-    return QuicDecrypter::Create(verison_, alg_)->GetIVSize();
+  if (decrypters_.empty() || decrypters_.begin()->second == nullptr) {
+    return QuicDecrypter::Create(version_, alg_)->GetIVSize();
   }
   else {
-    return *(decrypters_.begin())->GetIVSize();
+    return decrypters_.begin()->second->GetIVSize();
   }
 }
 

@@ -17,6 +17,10 @@ namespace quic {
 
 class QUIC_EXPORT_PRIVATE QuicMcDecrypter {
  public:
+  QuicMcDecrypter(const ParsedQuicVersion &version,
+                  QuicTag algorithm);
+  QuicMcDecrypter(const QuicMcDecrypter &) = delete;
+  QuicMcDecrypter& operator=(const QuicMcDecrypter &) = delete;
   virtual ~QuicMcDecrypter() {}
 
   static std::unique_ptr<QuicMcDecrypter> Create(const ParsedQuicVersion& version,
@@ -56,9 +60,6 @@ class QUIC_EXPORT_PRIVATE QuicMcDecrypter {
   absl::string_view header_key_;
   ParsedQuicVersion version_;
   QuicTag alg_;
-
-  QuicMcDecrypter(const ParsedQuicVersion &version,
-                  QuicTag algorithm);
 };
 
 }  // namespace quic
