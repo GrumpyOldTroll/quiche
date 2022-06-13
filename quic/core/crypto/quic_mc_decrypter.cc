@@ -31,9 +31,12 @@ bool QuicMcDecrypter::SetKeyAndIVForPacketRange(absl::string_view key,
   }
   else {
     auto it = decrypters_.upper_bound(until_packet_number);
-    if (it != decrypters_.begin()) {
+    if (it == decrypters_.begin()) {
+      decrypters_.emplace(until_packet_number + 1, nullptr);
+    }
+    else {
       it--;
-      decrypters_[until_packet_number + 1] = std::move(it->second);
+      decrypters_.emplace(until_packet_number + 1, std::move(it->second));
     }
     decrypters_.erase(decrypters_.lower_bound(from_packet_number),
                       decrypters_.upper_bound(until_packet_number));
@@ -63,7 +66,7 @@ bool QuicMcDecrypter::DecryptPacket(uint64_t packet_number,
                                     size_t max_output_length) {
   auto it = decrypters_.lower_bound(packet_number);
   if (it == decrypters_.end() || it->second == nullptr) {
-    return 0;
+    return false;
   }
   return it->second->DecryptPacket(packet_number, associated_data, ciphertext, output,
                                    output_length, max_output_length);

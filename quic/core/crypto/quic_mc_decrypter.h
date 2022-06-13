@@ -37,7 +37,7 @@ class QUIC_EXPORT_PRIVATE QuicMcDecrypter {
   virtual void DiscardObsoleteKeys(QuicPacketCount before_packet_number);
 
   // Populates |output| with the decrypted |ciphertext| and populates
-  // |output_length| with the length.  Returns 0 if there is an error.
+  // |output_length| with the length.  Returns false if there is an error.
   // |output| size is specified by |max_output_length| and must be
   // at least as large as the ciphertext.
   virtual bool DecryptPacket(uint64_t packet_number,
