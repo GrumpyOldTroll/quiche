@@ -10,13 +10,13 @@ package quic;
 
 import "quic/core/proto/push_pool.proto";
 
-message PushServer {
-    
+message PushServer { 
+
     oneof Command {
         PushPool pool = 1;
-        QuicServerPushMakePool make_pool = 2;
-        QuicServerPushActivatePool activate_pool = 3;
-        QuicServerPushDeactivatePool deactivate_pool = 4;
+        PushServerMakePool make_pool = 2;
+        PushServerActivatePool activate_pool = 3;
+        PushServerDeactivatePool deactivate_pool = 4;
     }
 
     message Response {
@@ -25,21 +25,21 @@ message PushServer {
 
         oneof CommandResponse {
             PushPool.Response pool = 3;
-            QuicServerPushMakePool.Response make_pool = 4;
+            PushServerMakePool.Response make_pool = 4;
         }
     }
     
 }
 
-message QuicServerPushActivatePool {
+message PushServerActivatePool {
+    int32 pool_id = 14;
+}
+
+message PushServerDeactivatePool {
     uint32 pool_id = 1;
 }
 
-message QuicServerPushDeactivatePool {
-    uint32 pool_id = 1;
-}
-
-message QuicServerPushMakePool {
+message PushServerMakePool {
 
     enum Type { // TODO: Choose the default value as 0, for now 'Reserved'
         Reserved = 0;
