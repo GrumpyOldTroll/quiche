@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef QUICHE_QUIC_CORE_FRAMES_QUIC_MC_CLIENT_LIMITS_FRAME_H_
-#define QUICHE_QUIC_CORE_FRAMES_QUIC_MC_CLIENT_LIMITS_FRAME_H_
+#ifndef QUICHE_QUIC_CORE_FRAMES_QUIC_MC_LIMITS_FRAME_H_
+#define QUICHE_QUIC_CORE_FRAMES_QUIC_MC_LIMITS_FRAME_H_
 
 #include <ostream>
 
@@ -14,15 +14,15 @@
 
 namespace quic {
 
-using QuicMcClientLimitsCapabilitiesField = uint64_t;
+using QuicMcLimitsCapabilitiesField = uint64_t;
 const uint64_t kClientLimits_IPv4 = UINT64_C(0x0001);
 const uint64_t kClientLimits_IPv6 = UINT64_C(0x0002);
 const uint64_t kClientLimits_SSM  = UINT64_C(0x0004);
 const uint64_t kClientLimits_ASM  = UINT64_C(0x0008);
 
-struct QUIC_EXPORT_PRIVATE QuicMcClientLimitsFrame {
-  QuicMcClientLimitsFrame() = default;
-  QuicMcClientLimitsFrame(QuicControlFrameId control_frame_id,
+struct QUIC_EXPORT_PRIVATE QuicMcLimitsFrame {
+  QuicMcLimitsFrame() = default;
+  QuicMcLimitsFrame(QuicControlFrameId control_frame_id,
       QuicClientLimitsSequenceNumber client_limits_sn,
       bool ip4_support,
       bool ip6_support,
@@ -32,16 +32,16 @@ struct QUIC_EXPORT_PRIVATE QuicMcClientLimitsFrame {
       QuicChannelCount max_channel_ids,
       QuicChannelCount max_joined);
 
-  QuicMcClientLimitsFrame(QuicControlFrameId control_frame_id,
+  QuicMcLimitsFrame(QuicControlFrameId control_frame_id,
       QuicClientLimitsSequenceNumber client_limits_sn,
-      QuicMcClientLimitsCapabilitiesField capabilities,
+      QuicMcLimitsCapabilitiesField capabilities,
       QuicBitrate max_aggregate_rate,
       QuicChannelCount max_channel_ids,
       QuicChannelCount max_joined);
 
   friend QUIC_EXPORT_PRIVATE std::ostream& operator<<(
       std::ostream& os,
-      const QuicMcClientLimitsFrame& frame);
+      const QuicMcLimitsFrame& frame);
 
   bool IPv4Support() const {
     return static_cast<bool>(capabilities & kClientLimits_IPv4);
@@ -63,7 +63,7 @@ struct QUIC_EXPORT_PRIVATE QuicMcClientLimitsFrame {
   // and non-zero when sent.
   QuicControlFrameId control_frame_id = kInvalidControlFrameId;
   QuicClientLimitsSequenceNumber client_limits_sn = 0;
-  QuicMcClientLimitsCapabilitiesField capabilities = 0;
+  QuicMcLimitsCapabilitiesField capabilities = 0;
   QuicBitrate max_aggregate_rate = 0;
   QuicChannelCount max_channel_ids = 0;
   QuicChannelCount max_joined = 0;
@@ -71,4 +71,4 @@ struct QUIC_EXPORT_PRIVATE QuicMcClientLimitsFrame {
 
 }  // namespace quic
 
-#endif  // QUICHE_QUIC_CORE_FRAMES_QUIC_MC_CLIENT_LIMITS_FRAME_H_
+#endif  // QUICHE_QUIC_CORE_FRAMES_QUIC_MC_LIMITS_FRAME_H_

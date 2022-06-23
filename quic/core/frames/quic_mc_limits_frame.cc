@@ -2,14 +2,14 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "quic/core/frames/quic_mc_client_limits_frame.h"
+#include "quic/core/frames/quic_mc_limits_frame.h"
 
 namespace quic {
 
-QuicMcClientLimitsFrame::QuicMcClientLimitsFrame(
+QuicMcLimitsFrame::QuicMcLimitsFrame(
     QuicControlFrameId control_frame_id,
     QuicClientLimitsSequenceNumber client_limits_sn,
-    QuicMcClientLimitsCapabilitiesField capabilities,
+    QuicMcLimitsCapabilitiesField capabilities,
     QuicBitrate max_aggregate_rate,
     QuicChannelCount max_channel_ids,
     QuicChannelCount max_joined)
@@ -21,7 +21,7 @@ QuicMcClientLimitsFrame::QuicMcClientLimitsFrame(
       max_joined(max_joined) {
 }
 
-QuicMcClientLimitsFrame::QuicMcClientLimitsFrame(
+QuicMcLimitsFrame::QuicMcLimitsFrame(
     QuicControlFrameId control_frame_id,
     QuicClientLimitsSequenceNumber client_limits_sn,
     bool ip4_support,
@@ -31,7 +31,7 @@ QuicMcClientLimitsFrame::QuicMcClientLimitsFrame(
     QuicBitrate max_aggregate_rate,
     QuicChannelCount max_channel_ids,
     QuicChannelCount max_joined)
-    : QuicMcClientLimitsFrame(
+    : QuicMcLimitsFrame(
         control_frame_id,
         (ip4_support ? kClientLimits_IPv4 : 0) |
         (ip6_support ? kClientLimits_IPv6 : 0) |
@@ -46,7 +46,7 @@ QuicMcClientLimitsFrame::QuicMcClientLimitsFrame(
 
 
 std::ostream& operator<<(std::ostream& os,
-                         const QuicMcClientLimitsFrame& frame) {
+                         const QuicMcLimitsFrame& frame) {
   os << "{ control_frame_id: " << frame.control_frame_id
      << ", capabilities: " << frame.capabilities
      << ", max_aggregate_rate: " << frame.max_aggregate_rate

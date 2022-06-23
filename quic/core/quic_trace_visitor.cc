@@ -93,15 +93,14 @@ void QuicTraceVisitor::OnPacketSent(
       case MESSAGE_FRAME:
       case CRYPTO_FRAME:
       case NEW_TOKEN_FRAME:
-      case MC_CHANNEL_ANNOUNCE_FRAME:
-      case MC_CHANNEL_PROPERTIES_FRAME:
-      case MC_CHANNEL_JOIN_FRAME:
-      case MC_CHANNEL_LEAVE_FRAME:
-      case MC_CHANNEL_INTEGRITY_FRAMEX:
-      case MC_PATH_RESPONSE_FRAMEX:
-      case MC_CLIENT_LIMITS_FRAME:
-      case MC_CHANNEL_RETIRE_FRAME:
-      case MC_CLIENT_CHANNEL_STATE_FRAME:
+      case MC_ANNOUNCE_FRAME:
+      case MC_KEY_FRAME:
+      case MC_JOIN_FRAME:
+      case MC_LEAVE_FRAME:
+      case MC_INTEGRITY_FRAMEX:
+      case MC_LIMITS_FRAME:
+      case MC_RETIRE_FRAME:
+      case MC_STATE_FRAME:
         break;
 
       // Ignore gQUIC-specific frames.
@@ -234,15 +233,14 @@ void QuicTraceVisitor::PopulateFrameInfo(const QuicFrame& frame,
     case CRYPTO_FRAME:
     case NEW_TOKEN_FRAME:
     case ACK_FREQUENCY_FRAME:
-    case MC_CHANNEL_ANNOUNCE_FRAME:
-    case MC_CHANNEL_PROPERTIES_FRAME:
-    case MC_CHANNEL_JOIN_FRAME:
-    case MC_CHANNEL_LEAVE_FRAME:
-    case MC_CHANNEL_INTEGRITY_FRAMEX:
-    case MC_PATH_RESPONSE_FRAMEX:
-    case MC_CLIENT_LIMITS_FRAME:
-    case MC_CHANNEL_RETIRE_FRAME:
-    case MC_CLIENT_CHANNEL_STATE_FRAME:
+    case MC_ANNOUNCE_FRAME:
+    case MC_KEY_FRAME:
+    case MC_JOIN_FRAME:
+    case MC_LEAVE_FRAME:
+    case MC_INTEGRITY_FRAMEX:
+    case MC_LIMITS_FRAME:
+    case MC_RETIRE_FRAME:
+    case MC_STATE_FRAME:
       break;
 
     case NUM_FRAME_TYPES:

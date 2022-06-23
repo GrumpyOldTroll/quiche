@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef QUICHE_QUIC_CORE_FRAMES_QUIC_MC_CHANNEL_LEAVE_FRAME_H_
-#define QUICHE_QUIC_CORE_FRAMES_QUIC_MC_CHANNEL_LEAVE_FRAME_H_
+#ifndef QUICHE_QUIC_CORE_FRAMES_QUIC_MC_JOIN_FRAME_H_
+#define QUICHE_QUIC_CORE_FRAMES_QUIC_MC_JOIN_FRAME_H_
 
 #include <ostream>
 
@@ -14,25 +14,27 @@
 
 namespace quic {
 
-struct QUIC_EXPORT_PRIVATE QuicMcChannelLeaveFrame {
-  QuicMcChannelLeaveFrame() = default;
-  QuicMcChannelLeaveFrame(QuicControlFrameId control_frame_id,
-                          QuicChannelId channel_id,
-                          QuicClientChannelStateSequenceNumber channel_state_sn,
-                          QuicPacketCount after_packet_number);
+struct QUIC_EXPORT_PRIVATE QuicMcJoinFrame {
+    QuicMcJoinFrame() = default;
+    QuicMcJoinFrame(QuicControlFrameId control_frame_id,
+                         QuicChannelId channel_id,
+                         QuicClientLimitsSequenceNumber limits_sn,
+                         QuicClientChannelStateSequenceNumber channel_state_sn,
+                         QuicChannelKeySequenceNumber channel_key_sn);
 
   friend QUIC_EXPORT_PRIVATE std::ostream& operator<<(
       std::ostream& os,
-      const QuicMcChannelLeaveFrame& frame);
+      const QuicMcJoinFrame& frame);
 
   // A unique identifier of this control frame. 0 when this frame is received,
   // and non-zero when sent.
   QuicControlFrameId control_frame_id = kInvalidControlFrameId;
   QuicChannelId channel_id = EmptyQuicChannelId();
+  QuicClientLimitsSequenceNumber limits_sn = 0;
   QuicClientChannelStateSequenceNumber channel_state_sn = 0;
-  QuicPacketCount after_packet_number = 0;
+  QuicChannelKeySequenceNumber channel_key_sn = 0;
 };
 
 }  // namespace quic
 
-#endif  // QUICHE_QUIC_CORE_FRAMES_QUIC_MC_CHANNEL_LEAVE_FRAME_H_
+#endif  // QUICHE_QUIC_CORE_FRAMES_QUIC_MC_JOIN_FRAME_H_

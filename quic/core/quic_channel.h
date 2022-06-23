@@ -31,19 +31,19 @@ class QUIC_EXPORT_PRIVATE QuicChannel {
       const uint8_t* header_key,
       QuicAEADAlgorithmId aead_algorithm,
       QuicHashAlgorithmId hash_algorithm
+      //uint64_t max_rate,
+      //uint64_t max_idle_time,
+      //uint64_t ack_bundle_size
       );
 
- bool addProperties( QuicPacketCount from_packet_number,
-                      const uint8_t* key,
-                      uint64_t max_rate,
-                      uint64_t max_idle_time,
-                      uint64_t ack_bundle_size);
- void setChannelPropertiesSn(QuicChannelPropertiesSequenceNumber sn);
+ bool addKey( QuicPacketCount from_packet_number,
+                      const uint8_t* key);
+ void setChannelPropertiesSn(QuicChannelKeySequenceNumber sn);
  QuicChannelId getChannelId();
  State getState();
  QuicClientChannelStateSequenceNumber getStateSn();
  QuicClientLimitsSequenceNumber getClientLimitsSn();
- QuicChannelPropertiesSequenceNumber getClientPropertiesSn();
+ QuicChannelKeySequenceNumber getChannelKeySn();
  bool join();
  bool leave();
  void incrementStateSn();
@@ -56,8 +56,7 @@ class QUIC_EXPORT_PRIVATE QuicChannel {
    struct mcrx_subscription_config mcrx_config_;
    QuicClientChannelStateSequenceNumber channel_state_sn_;
    QuicClientLimitsSequenceNumber limits_sn_;
-   QuicChannelPropertiesSequenceNumber channel_properties_sn_;
-   //QuicChannelPropertiesSequenceNumber channel_properties_sn;
+   QuicChannelKeySequenceNumber channel_key_sn_;
    // Immutable
    QuicChannelId channel_id_;
    QuicIpAddress source_ip_;

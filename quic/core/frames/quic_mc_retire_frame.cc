@@ -2,11 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "quic/core/frames/quic_mc_channel_retire_frame.h"
+#include "quic/core/frames/quic_mc_retire_frame.h"
 
 namespace quic {
 
-QuicMcChannelRetireFrame::QuicMcChannelRetireFrame(
+QuicMcRetireFrame::QuicMcRetireFrame(
     QuicControlFrameId control_frame_id,
     QuicChannelId channel_id)
     : control_frame_id(control_frame_id),
@@ -14,7 +14,7 @@ QuicMcChannelRetireFrame::QuicMcChannelRetireFrame(
 }
 
 std::ostream& operator<<(std::ostream& os,
-                         const QuicMcChannelRetireFrame& frame) {
+                         const QuicMcRetireFrame& frame) {
   os << "{ control_frame_id: " << frame.control_frame_id
      << ", channel_id: " << frame.channel_id
      << " }\n";

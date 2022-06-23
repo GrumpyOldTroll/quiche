@@ -164,13 +164,13 @@ class QUIC_EXPORT_PRIVATE QuicSession
   HandshakeState GetHandshakeState() const override;
   bool OnMaxStreamsFrame(const QuicMaxStreamsFrame& frame) override;
   bool OnStreamsBlockedFrame(const QuicStreamsBlockedFrame& frame) override;
-  bool OnMcChannelAnnounceFrame(const QuicMcChannelAnnounceFrame& frame) override;
-  bool OnMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame& frame) override;
-  bool OnMcChannelJoinFrame(const QuicMcChannelJoinFrame& frame) override;
-  bool OnMcChannelLeaveFrame(const QuicMcChannelLeaveFrame& frame) override;
-  bool OnMcChannelRetireFrame(const QuicMcChannelRetireFrame& frame) override;
-  bool OnMcClientChannelStateFrame(const QuicMcClientChannelStateFrame& frame) override;
-  bool OnMcClientLimitsFrame(const QuicMcClientLimitsFrame& frame) override;
+  bool OnMcAnnounceFrame(const QuicMcAnnounceFrame& frame) override;
+  bool OnMcKeyFrame(const QuicMcKeyFrame& frame) override;
+  bool OnMcJoinFrame(const QuicMcJoinFrame& frame) override;
+  bool OnMcLeaveFrame(const QuicMcLeaveFrame& frame) override;
+  bool OnMcRetireFrame(const QuicMcRetireFrame& frame) override;
+  bool OnMcStateFrame(const QuicMcStateFrame& frame) override;
+  bool OnMcLimitsFrame(const QuicMcLimitsFrame& frame) override;
 
   void OnStopSendingFrame(const QuicStopSendingFrame& frame) override;
   void OnPacketDecrypted(EncryptionLevel level) override;

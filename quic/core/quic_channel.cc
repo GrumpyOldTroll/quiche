@@ -16,7 +16,7 @@ namespace quic {
     this->state_ = QuicChannel::initialized;
     this->channel_state_sn_ = 0;
     this->limits_sn_ = 0;
-    this->channel_properties_sn_ = 0;
+    this->channel_key_sn_ = 0;
     this->channel_id_ = channel_id;
     this->source_ip_ = source_ip;
     this->group_ip_ = group_ip;
@@ -34,25 +34,22 @@ namespace quic {
     QUIC_LOG(WARNING) << "Created new quic channel object";
   };
 
-  bool QuicChannel::addProperties(QuicPacketCount from_packet_number,
-                                   const uint8_t* key,
-                                   uint64_t max_rate,
-                                   uint64_t max_idle_time,
-                                   uint64_t ack_bundle_size) {
+  bool QuicChannel::addKey(QuicPacketCount from_packet_number,
+                                   const uint8_t* key) {
       if (this->state_ == QuicChannel::initialized) {
           this->state_ =  QuicChannel::unjoined;
       }
       properties props;
       props.key = key;
-      props.max_rate = max_rate;
-      props.max_idle_time = max_idle_time;
-      props.ack_bundle_size = ack_bundle_size;
+     // props.max_rate = max_rate;
+     // props.max_idle_time = max_idle_time;
+     // props.ack_bundle_size = ack_bundle_size;
       properties_map_.insert(std::make_pair(from_packet_number, props));
       return true;
   }
 
-  void QuicChannel::setChannelPropertiesSn(QuicChannelPropertiesSequenceNumber sn) {
-      this->channel_properties_sn_ = sn;
+  void QuicChannel::setChannelPropertiesSn(QuicChannelKeySequenceNumber sn) {
+      this->channel_key_sn_ = sn;
   }
 
   QuicChannelId QuicChannel::getChannelId(){
@@ -71,8 +68,8 @@ namespace quic {
       return this->limits_sn_;
   }
 
-  QuicChannelPropertiesSequenceNumber QuicChannel::getClientPropertiesSn(){
-      return this->channel_properties_sn_;
+  QuicChannelKeySequenceNumber QuicChannel::getChannelKeySn(){
+      return this->channel_key_sn_;
   }
 
   bool QuicChannel::join() {

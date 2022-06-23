@@ -46,20 +46,20 @@ std::ostream& operator<<(std::ostream& os, const QuicConnectionStats& s) {
      << s.connection_creation_time.ToDebuggingValue();
   os << " blocked_frames_received: " << s.blocked_frames_received;
   os << " blocked_frames_sent: " << s.blocked_frames_sent;
-  os << " mc_channel_announce_frames_received: " << s.mc_channel_announce_frames_received;
-  os << " mc_channel_announce_frames_sent: " << s.mc_channel_announce_frames_sent;
-  os << " mc_channel_properties_frames_received: " << s.mc_channel_properties_frames_received;
-  os << " mc_channel_properties_frames_sent: " << s.mc_channel_properties_frames_sent;
-  os << " mc_channel_join_frames_received: " << s.mc_channel_join_frames_received;
-  os << " mc_channel_join_frames_sent: " << s.mc_channel_join_frames_sent;
-  os << " mc_channel_leave_frames_received: " << s.mc_channel_leave_frames_received;
-  os << " mc_channel_leave_frames_sent: " << s.mc_channel_leave_frames_sent;
-  os << " mc_channel_retire_frames_received: " << s.mc_channel_retire_frames_received;
-  os << " mc_channel_retire_frames_sent: " << s.mc_channel_retire_frames_sent;
-  os << " mc_client_channel_state_frames_received: " << s.mc_client_channel_state_frames_received;
-  os << " mc_client_channel_state_frames_sent: " << s.mc_client_channel_state_frames_sent;
-  os << " mc_client_limits_frames_received: " << s.mc_client_limits_frames_received;
-  os << " mc_client_limits_frames_sent: " << s.mc_client_limits_frames_sent;
+  os << " mc_announce_frames_received: " << s.mc_announce_frames_received;
+  os << " mc_announce_frames_sent: " << s.mc_announce_frames_sent;
+  os << " mc_key_frames_received: " << s.mc_key_frames_received;
+  os << " mc_key_frames_sent: " << s.mc_key_frames_sent;
+  os << " mc_join_frames_received: " << s.mc_join_frames_received;
+  os << " mc_join_frames_sent: " << s.mc_join_frames_sent;
+  os << " mc_leave_frames_received: " << s.mc_leave_frames_received;
+  os << " mc_leave_frames_sent: " << s.mc_leave_frames_sent;
+  os << " mc_retire_frames_received: " << s.mc_retire_frames_received;
+  os << " mc_retire_frames_sent: " << s.mc_retire_frames_sent;
+  os << " mc_state_frames_received: " << s.mc_state_frames_received;
+  os << " mc_state_frames_sent: " << s.mc_state_frames_sent;
+  os << " mc_limits_frames_received: " << s.mc_limits_frames_received;
+  os << " mc_limits_frames_sent: " << s.mc_limits_frames_sent;
   os << " num_connectivity_probing_received: "
      << s.num_connectivity_probing_received;
   os << " retry_packet_processed: "

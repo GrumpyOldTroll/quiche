@@ -2,8 +2,8 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#ifndef QUICHE_QUIC_CORE_FRAMES_QUIC_MC_CLIENT_CHANNEL_STATE_FRAME_H_
-#define QUICHE_QUIC_CORE_FRAMES_QUIC_MC_CLIENT_CHANNEL_STATE_FRAME_H_
+#ifndef QUICHE_QUIC_CORE_FRAMES_QUIC_MC_STATE_FRAME_H_
+#define QUICHE_QUIC_CORE_FRAMES_QUIC_MC_STATE_FRAME_H_
 
 #include <ostream>
 
@@ -37,9 +37,9 @@ enum QuicClientChannelStateReasonConstants {
 };
 using QuicClientChannelStateLeaveReason = uint64_t;
 
-struct QUIC_EXPORT_PRIVATE QuicMcClientChannelStateFrame {
-  QuicMcClientChannelStateFrame() = default;
-  QuicMcClientChannelStateFrame(QuicControlFrameId control_frame_id,
+struct QUIC_EXPORT_PRIVATE QuicMcStateFrame {
+  QuicMcStateFrame() = default;
+  QuicMcStateFrame(QuicControlFrameId control_frame_id,
                                 QuicChannelId channel_id,
                                 QuicClientChannelStateSequenceNumber channel_state_sn,
                                 QuicClientChannelStateState state,
@@ -47,7 +47,7 @@ struct QUIC_EXPORT_PRIVATE QuicMcClientChannelStateFrame {
 
   friend QUIC_EXPORT_PRIVATE std::ostream& operator<<(
       std::ostream& os,
-      const QuicMcClientChannelStateFrame& frame);
+      const QuicMcStateFrame& frame);
 
   // A unique identifier of this control frame. 0 when this frame is received,
   // and non-zero when sent.
@@ -60,4 +60,4 @@ struct QUIC_EXPORT_PRIVATE QuicMcClientChannelStateFrame {
 
 }  // namespace quic
 
-#endif  // QUICHE_QUIC_CORE_FRAMES_QUIC_MC_CLIENT_CHANNEL_STATE_FRAME_H_
+#endif  // QUICHE_QUIC_CORE_FRAMES_QUIC_MC_STATE_FRAME_H_

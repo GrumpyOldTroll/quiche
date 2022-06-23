@@ -2,11 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "quic/core/frames/quic_mc_channel_leave_frame.h"
+#include "quic/core/frames/quic_mc_leave_frame.h"
 
 namespace quic {
 
-QuicMcChannelLeaveFrame::QuicMcChannelLeaveFrame(
+QuicMcLeaveFrame::QuicMcLeaveFrame(
     QuicControlFrameId control_frame_id,
     QuicChannelId channel_id,
     QuicClientChannelStateSequenceNumber channel_state_sn,
@@ -18,7 +18,7 @@ QuicMcChannelLeaveFrame::QuicMcChannelLeaveFrame(
 }
 
 std::ostream& operator<<(std::ostream& os,
-                         const QuicMcChannelLeaveFrame& frame) {
+                         const QuicMcLeaveFrame& frame) {
   os << "{ control_frame_id: " << frame.control_frame_id
      << ", channel_id: " << frame.channel_id
      << ", channel_state_sn: " << frame.channel_state_sn
