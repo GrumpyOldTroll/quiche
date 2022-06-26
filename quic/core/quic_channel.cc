@@ -11,7 +11,10 @@ namespace quic {
       QuicAEADAlgorithmId  header_aead_algorithm,
       const uint8_t* header_key,
       QuicAEADAlgorithmId aead_algorithm,
-      QuicHashAlgorithmId hash_algorithm
+      QuicHashAlgorithmId hash_algorithm,
+      uint64_t max_rate,
+      uint64_t max_idle_time,
+      uint64_t ack_bundle_size
   ) {
     this->state_ = QuicChannel::initialized;
     this->channel_state_sn_ = 0;
@@ -25,6 +28,9 @@ namespace quic {
     this->header_key_ = header_key;
     this->aead_algorithm_ = aead_algorithm;
     this->hash_algorithm_ = hash_algorithm;
+    this->max_rate_ = max_rate;
+    this->max_idle_time_ = max_idle_time,
+    this->ack_bundle_size_ = ack_bundle_size;
 
     //Create mcrx context
     struct mcrx_subscription_config conf = MCRX_SUBSCRIPTION_CONFIG_INIT;
@@ -39,12 +45,7 @@ namespace quic {
       if (this->state_ == QuicChannel::initialized) {
           this->state_ =  QuicChannel::unjoined;
       }
-      properties props;
-      props.key = key;
-     // props.max_rate = max_rate;
-     // props.max_idle_time = max_idle_time;
-     // props.ack_bundle_size = ack_bundle_size;
-      properties_map_.insert(std::make_pair(from_packet_number, props));
+      key_map_.insert(std::make_pair(from_packet_number, key));
       return true;
   }
 
@@ -99,12 +100,12 @@ namespace quic {
       this->channel_state_sn_++;
   }
 
-  /* properites might just be keys from now on so leave for now
-  properties QuicChannel::getPropertiesForPacket(QuicPacketCount) {
-
+  const uint8_t* QuicChannel::getKeyForPacket(QuicPacketCount pid) {
+      for(KeyMap::iterator it = key_map_.begin(); it != key_map_.end(); ++it) {
+          if (it->first<pid) {
+              return it->second;
+          }
+      }
+      return 0;
   }
-
-  const uint8_t* QuicChannel::getKeyForPacket(QuicPacketCount) {
-
-  } */
 }

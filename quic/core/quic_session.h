@@ -536,7 +536,10 @@ class QUIC_EXPORT_PRIVATE QuicSession
                                   QuicAEADAlgorithmId  header_aead_algorithm,
                                   const uint8_t* header_key,
                                   QuicAEADAlgorithmId aead_algorithm,
-                                  QuicHashAlgorithmId hash_algorithm);
+                                  QuicHashAlgorithmId hash_algorithm,
+                                  uint64_t max_rate,
+                                  uint64_t max_idle_time,
+                                  uint64_t ack_bundle_size);
 
   QuicChannel* GetChannel(QuicChannelId channel_id);
   bool QueueLeavingChannel(QuicChannelId channel_id, QuicPacketCount after_packet_number);

@@ -2033,7 +2033,10 @@ bool QuicSession::CreateChannelIfNotExistant(QuicChannelId channel_id,
                                              QuicAEADAlgorithmId  header_aead_algorithm,
                                              const uint8_t* header_key,
                                              QuicAEADAlgorithmId aead_algorithm,
-                                             QuicHashAlgorithmId hash_algorithm) {
+                                             QuicHashAlgorithmId hash_algorithm,
+                                             uint64_t max_rate,
+                                             uint64_t max_idle_time,
+                                             uint64_t ack_bundle_size) {
 
         ChannelMap::iterator it = channel_map_.find(channel_id);
         if (it != channel_map_.end()) {
@@ -2041,7 +2044,9 @@ bool QuicSession::CreateChannelIfNotExistant(QuicChannelId channel_id,
         }
         channel_map_.insert(std::make_pair(channel_id, std::unique_ptr<QuicChannel>(new QuicChannel(channel_id, source_ip, group_ip, port,
                                                                                                     header_aead_algorithm, header_key,
-                                                                                                    aead_algorithm, hash_algorithm))));
+                                                                                                    aead_algorithm, hash_algorithm,
+                                                                                                    max_rate, max_idle_time,
+                                                                                                    ack_bundle_size))));
         return true;
 }
 
@@ -2696,7 +2701,8 @@ bool QuicSession::OnMcAnnounceFrame(const QuicMcAnnounceFrame& frame) {
     //TODO: Is this the right way to get the header key? Should header key length be used here or is it already framed correctly?
     const bool new_channel = CreateChannelIfNotExistant(frame.channel_id, frame.source_ip, frame.group_ip, frame.udp_port,
                                                         frame.header_aead_algorithm, &frame.header_key[0], frame.aead_algorithm,
-                                                        frame.hash_algorithm );
+                                                        frame.hash_algorithm, frame.max_rate, frame.max_idle_time,
+                                                        frame.ack_bundle_size);
 
   QUIC_LOG(WARNING) << "XXXX(1.7) Got :" << frame;
   //TODO: What is proper error action here? Should the connection itself be closed?

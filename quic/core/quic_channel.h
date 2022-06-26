@@ -8,17 +8,10 @@
 
 namespace quic {
 
-struct properties {
-    const uint8_t* key;
-    uint64_t max_rate;
-    uint64_t max_idle_time;
-    uint64_t ack_bundle_size;
-};
-
 class QUIC_EXPORT_PRIVATE QuicChannel {
   protected:
-    using PropertiesMap =
-            absl::flat_hash_map<QuicPacketCount, properties>;
+    using KeyMap =
+            absl::flat_hash_map<QuicPacketCount, const uint8_t*>;
  public:
   enum State {initialized, unjoined, joined, retired};
 
@@ -30,10 +23,10 @@ class QUIC_EXPORT_PRIVATE QuicChannel {
       QuicAEADAlgorithmId  header_aead_algorithm,
       const uint8_t* header_key,
       QuicAEADAlgorithmId aead_algorithm,
-      QuicHashAlgorithmId hash_algorithm
-      //uint64_t max_rate,
-      //uint64_t max_idle_time,
-      //uint64_t ack_bundle_size
+      QuicHashAlgorithmId hash_algorithm,
+      uint64_t max_rate,
+      uint64_t max_idle_time,
+      uint64_t ack_bundle_size
       );
 
  bool addKey( QuicPacketCount from_packet_number,
@@ -47,8 +40,7 @@ class QUIC_EXPORT_PRIVATE QuicChannel {
  bool join();
  bool leave();
  void incrementStateSn();
- //properties getPropertiesForPacket(QuicPacketCount);
- //const uint8_t* getKeyForPacket(QuicPacketCount);
+ const uint8_t* getKeyForPacket(QuicPacketCount);
 
  private:
    State state_;
@@ -66,8 +58,11 @@ class QUIC_EXPORT_PRIVATE QuicChannel {
    const uint8_t* header_key_;
    QuicAEADAlgorithmId aead_algorithm_;
    QuicHashAlgorithmId hash_algorithm_;
+   uint64_t max_rate_;
+   uint64_t max_idle_time_;
+   uint64_t ack_bundle_size_;
    // Mutable
-   PropertiesMap properties_map_;
+   KeyMap key_map_;
 };
 
 
