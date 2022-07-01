@@ -8,6 +8,7 @@
 #include "quic/platform/api/quic_epoll.h"
 #include "quic/tools/quic_pusher.h"
 #include "quic/tools/quic_toy_server.h"
+#include "quic/tools/quic_epoll_uds_pusher.h"
 
 namespace quic {
 

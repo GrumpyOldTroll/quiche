@@ -17,6 +17,7 @@
 
 #include "quic/tools/quic_push_commands.h"
 #include "quic/platform/api/quic_logging.h"
+#include "quic/core/proto/push_server_proto.h"
 
 namespace {
 
@@ -67,6 +68,9 @@ int main(int argc, char* argv[]) {
     return -1;
   }
   int fd = rc;
+
+  quic::PushServer top_cmd;
+  top_cmd.mutable_activate_pool()->set_pool_id(42);
 
   std::vector<uint8_t> buf;
   buf.resize(16*1024);

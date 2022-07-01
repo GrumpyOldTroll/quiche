@@ -1,0 +1,70 @@
+// Copyright 2015 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+syntax = "proto3";
+
+option optimize_for = LITE_RUNTIME;
+
+package quic;
+
+import "quic/core/proto/push_channel.proto";
+
+/*
+    Pools are the way server knows how to coordinate client behavior in channels to keep clients 
+    within their advertised and inferred limits (especially the bit-rate limits).  The idea is 
+    that quic_server will manage the MC_CHANNEL_JOIN and MC_CHANNEL_LEAVE behavior of clients in 
+    such a way that each client receives data up to the rate it can handle, with a share of the
+    data coming from each pool.
+*/
+
+message PushPool {
+    
+    uint32 pool_id = 1;
+
+    oneof Command {
+        PushChannel channel = 2;
+        PushPoolMakeChannel make_channel = 3;
+        PushPoolMakeUnicast make_unicast = 4;
+        PushPoolFinishChannel finish_channel = 5;
+    }
+
+    message Response
+    {
+        oneof CommandResponse
+        {
+            PushChannel.Response channel = 1;
+            PushPoolMakeChannel.Response make_channel = 2;
+        }
+    }
+    
+}
+
+message PushPoolFinishChannel {
+    uint32 channel_id = 1;
+}
+
+message PushPoolMakeChannel {
+
+    bytes source_ip = 1;
+    bytes group_ip = 2;
+    uint32 port = 3;
+    uint32 max_rate = 4;
+    uint32 max_idle = 5;
+
+    message Response 
+    {
+        uint32 channel_id = 1;
+    }
+}
+
+message PushPoolMakeUnicast {
+    
+    enum Type 
+    {
+        Fallback = 0;
+        Supplement = 1;
+    }
+
+    Type type = 1;
+}

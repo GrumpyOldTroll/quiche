@@ -1,0 +1,13 @@
+{
+  "name": "quic-qpush",
+  "dependencies": {
+    "commander": "^9.3.0",
+    "google-protobuf": "^3.20.1",
+    "mathjs": "^10.6.1",
+    "protobufjs": "6.8.0",
+    "unitmath": "^0.8.8"
+  },
+  "bin": {
+    "qpush": "./qpush.js"
+  }
+}

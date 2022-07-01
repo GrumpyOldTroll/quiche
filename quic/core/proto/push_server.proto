@@ -1,0 +1,57 @@
+// Copyright 2015 The Chromium Authors. All rights reserved.
+// Use of this source code is governed by a BSD-style license that can be
+// found in the LICENSE file.
+
+syntax = "proto3";
+
+option optimize_for = LITE_RUNTIME;
+
+package quic;
+
+import "quic/core/proto/push_pool.proto";
+
+message PushServer { 
+
+    oneof Command {
+        PushPool pool = 1;
+        PushServerMakePool make_pool = 2;
+        PushServerActivatePool activate_pool = 3;
+        PushServerDeactivatePool deactivate_pool = 4;
+    }
+
+    message Response {
+        bool success = 1;
+        string error_message = 2;
+
+        oneof CommandResponse {
+            PushPool.Response pool = 3;
+            PushServerMakePool.Response make_pool = 4;
+        }
+    }
+    
+}
+
+message PushServerActivatePool {
+    int32 pool_id = 14;
+}
+
+message PushServerDeactivatePool {
+    uint32 pool_id = 1;
+}
+
+message PushServerMakePool {
+
+    enum Type { // TODO: Choose the default value as 0, for now 'Reserved'
+        Reserved = 0;
+        Alternatives = 1;
+        OrderedLayers = 2;
+        ArbitraryLayers = 3;
+    }
+
+    Type type = 1;
+
+    message Response 
+    {
+        uint32 pool_id = 1;
+    }
+}
