@@ -134,7 +134,8 @@ bool QuicServer::CreateUDPSocketAndListen(const QuicSocketAddress& address) {
   sockaddr_storage addr = address.generic_address();
   int rc = bind(fd_, reinterpret_cast<sockaddr*>(&addr), sizeof(addr));
   if (rc < 0) {
-    QUIC_LOG(ERROR) << "Bind failed: " << strerror(errno);
+    int err = errno;
+    QUIC_LOG(ERROR) << "Bind failed: " << strerror(err);
     return false;
   }
   QUIC_LOG(INFO) << "Listening on " << address.ToString();

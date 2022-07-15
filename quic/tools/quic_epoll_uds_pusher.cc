@@ -10,15 +10,20 @@
 #include <sys/stat.h>
 #include <sys/types.h>
 #include <unistd.h>
+
+#include <unistd.h>
+#include <sys/socket.h>
+#include <sys/un.h>
+#include <sys/types.h>
+
 #include <algorithm>
 #include <utility>
+#include <sstream>
 
 #include "quic/platform/api/quic_logging.h"
 #include "quic/tools/quic_server.h"
 
 namespace {
-
-const char kTopPath[] = "/top-cmd";
 
 enum {
   kDefaultReadBufsize = 1024 * 16,
@@ -56,11 +61,10 @@ std::ios_base::in); buf->pubseekpos(pos, std::ios_base::in); return end - pos;
 
 namespace quic {
 
-QuicEpollUDSPusher::QuicEpollUDSPusher(std::string path_base,
+QuicEpollUDSPusher::QuicEpollUDSPusher(std::string socket_path,
                                        QuicEpollServer* epoll_server,
                                        QuicSpdyServerBase* server)
-    : path_base_(path_base),
-      socket_path_("/tmp/test.sock"),
+    : path_(socket_path),
       topcmd_fd_(-1),
       epoll_server_(epoll_server),
       server_(server),
@@ -74,34 +78,35 @@ QuicEpollUDSPusher::~QuicEpollUDSPusher() {
 }
 
 bool QuicEpollUDSPusher::Initialize() {
-  ;
-
-  QUIC_LOG(INFO) << "Initialize(" << path_base_ << ")";
-
-  top_path_ = path_base_ + kTopPath;
+  QUIC_LOG(INFO) << "Initialize(" << path_ << ")";
 
   int s = 0;
   struct sockaddr_un local;
-  int len = 0;
 
   s = socket(AF_UNIX, SOCK_STREAM, 0);
   if (-1 == s) {
-    QUIC_LOG(WARNING) << "Error on socket() call \n";
-    return 1;
+    int got_err = errno;
+    QUIC_LOG(ERROR) << "error(" << got_err <<") creating socket: " << get_strerror(got_err);
+    return false;
   }
 
   local.sun_family = AF_UNIX;
-  strcpy(local.sun_path, socket_path_.c_str());
+  size_t max_pathlen = sizeof(local.sun_path);
+  strncpy(local.sun_path, path_.c_str(), max_pathlen);
+  local.sun_path[max_pathlen-1] = 0;
   unlink(local.sun_path);
 
-  len = strlen(local.sun_path) + sizeof(local.sun_family);
-  if (bind(s, (struct sockaddr*)&local, len) != 0) {
-    QUIC_LOG(WARNING) << "Error on binding socket \n";
-    return 1;
+  size_t sa_len = offsetof(struct sockaddr_un, sun_path) + strlen(local.sun_path) + 1;
+  if (bind(s, (struct sockaddr*)&local, sa_len) != 0) {
+    int got_err = errno;
+    QUIC_LOG(ERROR) << "error(" << got_err <<") binding socket: " << get_strerror(got_err);
+    return false;
   }
 
   if (listen(s, max_incoming_connections_) != 0) {
-    QUIC_LOG(WARNING) << "Error on listen call \n";
+    int got_err = errno;
+    QUIC_LOG(ERROR) << "error(" << got_err <<") listening: " << get_strerror(got_err);
+    return false;
   }
 
   topcmd_fd_ = s;
@@ -109,30 +114,34 @@ bool QuicEpollUDSPusher::Initialize() {
 
   return true;
 }
+
 void QuicEpollUDSPusher::Shutdown() {
-  QUIC_LOG(WARNING) << "Shutdown(" << top_path_ << ")";
+  QUIC_LOG(WARNING) << "Shutdown(" << path_ << ")";
   if (topcmd_fd_ != -1) {
     epoll_server_->UnregisterFD(topcmd_fd_);
     int rc;
     rc = close(topcmd_fd_);
     if (rc != 0) {
       int got_err = errno;
-      QUIC_LOG(ERROR) << "error(" << got_err << ") closing \"" << top_path_
+      QUIC_LOG(ERROR) << "error(" << got_err << ") closing \"" << path_
                       << "\": " << get_strerror(got_err);
     }
     topcmd_fd_ = -1;
-    rc = unlink(top_path_.c_str());
+    rc = unlink(path_.c_str());
     if (rc != 0) {
       int got_err = errno;
-      QUIC_LOG(ERROR) << "error(" << got_err << ") unlinking \"" << top_path_
+      QUIC_LOG(ERROR) << "error(" << got_err << ") unlinking \"" << path_
                       << "\": " << get_strerror(got_err);
     }
   }
+  while (!clients_.empty()) {
+    Client& client = *clients_.begin()->second;
+    CloseClient(client);
+  }
 }
 
-bool QuicEpollUDSPusher::RunBufferedCommands() {
+bool QuicEpollUDSPusher::RunBufferedCommands(QuicEpollUDSPusher::Client& client) {
 
-  Client& client = *current_client;
   auto& filled_len = client.filled_len;
   auto& client_buffer = client.buffer;
 
@@ -140,9 +149,6 @@ bool QuicEpollUDSPusher::RunBufferedCommands() {
   int commands = 0;
   // TODO: maybe a time limit is better than a command count limit?  Or
   //       do we need both?  --jake 2022-04-24
-
-  quic::PushServer top_cmd;
-  top_cmd.mutable_activate_pool()->set_pool_id(42);
 
   size_t consumed = 0;
   ssize_t just_ate = 0;
@@ -153,18 +159,20 @@ bool QuicEpollUDSPusher::RunBufferedCommands() {
          commands < kCommandLimit) {
     just_ate = 0;
 
-    quic::PushServer push_cmd;
+    quic::PushCmd push_cmd;
 
-    auto read_success = parseCommand(push_cmd, client_buffer.size() - consumed,
-                                     &client_buffer[consumed], just_ate, err);
+    auto read_success = parseCommand(client, push_cmd,
+        client_buffer.size() - consumed, &client_buffer[consumed],
+        just_ate, err);
     if (!read_success) {
       QUIC_LOG(WARNING) << "no command parsed from " << filled_len
-                        << " bbytes at offset " << consumed << " (" << just_ate
+                        << " bytes at offset " << consumed << " (" << just_ate
                         << " output as consumed)";
-      break;
+      CloseClient(client);
+      return false;
     }
 
-    QUIC_LOG(WARNING) << "received command" << push_cmd.DebugString();
+    QUIC_LOG(WARNING) << "received command " << push_cmd.DebugString();
 
     QUIC_LOG(WARNING) << "command parsed from " << filled_len
                       << " bytes at offset " << consumed << " consuming "
@@ -173,13 +181,28 @@ bool QuicEpollUDSPusher::RunBufferedCommands() {
     consumed += just_ate;
     commands += 1;
 
-    RunCommand(push_cmd);
+    quic::PushCmd_Response cmd_resp;
+    RunCommand(push_cmd, cmd_resp);
+    client.response_buf.resize(16*1024);
+    google::protobuf::io::ArrayOutputStream output_stream(
+        &client.response_buf[client.response_len],
+        client.response_buf.size() - client.response_len);
+    bool resp_write_success = quic::PushUtils::writeDelimitedTo(
+        cmd_resp, &output_stream);
+    if (!resp_write_success) {
+      QUIC_LOG(WARNING) << "failed to serialize response";
+      CloseClient(client);
+      return false;
+    }
+    client.response_len += output_stream.ByteCount();
+    client.response_buf.resize(client.response_len);
+    epoll_server_->StartWrite(client.fd);
   }
   if (consumed > filled_len) {
     QUIC_LOG(ERROR) << "internal error: consumed(" << consumed
                     << ") more bytes than were available(" << filled_len
                     << ")";
-    Shutdown();
+    CloseClient(client);
     return false;
   }
   if (consumed == filled_len) {
@@ -205,71 +228,106 @@ bool QuicEpollUDSPusher::RunBufferedCommands() {
   return false;
 }
 
+bool QuicEpollUDSPusher::CloseClient(QuicEpollUDSPusher::Client& client) {
+  QUIC_LOG(WARNING) << "closing client(" << client.fd << ")";
+  epoll_server_->UnregisterFD(client.fd);
+  close(client.fd);
+  clients_.erase(client.fd);
+  delete(&client);
+  return true;
+}
+
 // From EpollCallbackInterface
 void QuicEpollUDSPusher::OnRegistration(QuicEpollServer* eps,
                                         int fd,
                                         int event_mask) {
-  QUIC_LOG(WARNING) << "OnRegistration(" << top_path_ << ")";
+  QUIC_LOG(WARNING) << "OnRegistration(" << path_ << ")";
 }
 void QuicEpollUDSPusher::OnModification(int fd, int event_mask) {
-  QUIC_LOG(WARNING) << "OnModification(" << top_path_ << ")";
+  QUIC_LOG(WARNING) << "OnModification(" << path_ << ")";
 }
 
 void QuicEpollUDSPusher::OnEvent(int fd, QuicEpollEvent* event) {
 
-  QUIC_LOG(WARNING) << "OnEvent(" << top_path_ << ")";
+  QUIC_LOG(WARNING) << "OnEvent(" << path_ << ")";
   event->out_ready_mask = 0;
   event_count_ += 1;
+  Client* client = 0;
 
   if (event->in_events & EPOLLIN) {
-    if (fd == topcmd_fd_)  // Connection from the UDS
-    {
+    if (fd == topcmd_fd_) {
+      // Connection from the UDS
       handleConnection();
-      return ;
-    }
-    else
-    {
+      return;
+    } else {
+      // a particular client
       auto it = clients_.find(fd);
       
-      if (it != clients_.end())
-      {
-        current_client = it->second;
-        handleComingData();
-      }
-      else
+      if (it == clients_.end()) {
         QUIC_LOG(ERROR) << "Client isn't registered";
+        Shutdown();
+        return;
+      }
+      client = it->second;
+      handleComingData(*client);
+    }
+    bool refire = RunBufferedCommands(*client);
+    if (refire) {
+      event->out_ready_mask |= EPOLLIN;
     }
   }
 
-
-  bool refire = RunBufferedCommands();
-  if (refire) {
-    event->out_ready_mask |= EPOLLIN;
+  if (event->in_events & EPOLLOUT) {
+    if (!client) {
+      // a particular client
+      auto it = clients_.find(fd);
+      
+      if (it == clients_.end()) {
+        QUIC_LOG(ERROR) << "Client isn't registered (on EPOLLOUT)";
+        Shutdown();
+        return;
+      }
+      client = it->second;
+    }
+    // QUIC_DVLOG(1)
+    QUIC_LOG(WARNING) << "EPOLLOUT(client(" << fd << "))";
+    if (client->response_len > 0) {
+      size_t wrote = write(client->fd, &client->response_buf[0],
+          client->response_len);
+      if (wrote < 0) {
+        int got_err = errno;
+        QUIC_LOG(ERROR) << "error(" << got_err << ") writing to client(" << fd << "): " << get_strerror(got_err);
+        CloseClient(*client);
+        return;
+      }
+      if (wrote > client->response_len) {
+        QUIC_LOG(ERROR) << "error writing to client(" << fd << "): wrote " << wrote << " on write of " << client->response_len << " bytes";
+        CloseClient(*client);
+        return;
+      }
+      if (wrote < client->response_len) {
+        client->response_len -= wrote;
+        client->response_buf.erase(client->response_buf.begin(),
+            client->response_buf.begin() + wrote);
+        event->out_ready_mask |= EPOLLOUT;
+      } else {
+        client->response_len = 0;
+        epoll_server_->StopWrite(client->fd);
+      }
+    }
   }
 
   if (event->in_events & EPOLLHUP) {
     // QUIC_DVLOG(1)
-    QUIC_LOG(WARNING) << "EPOLLHUP(" << top_path_ << ")";
-    epoll_server_->UnregisterFD(fd);
-    close(fd);
-    return;
-  }
-
-  if (event->in_events & EPOLLOUT) {
-    // QUIC_DVLOG(1)
-    QUIC_LOG(WARNING) << "EPOLLOUT(" << top_path_ << ")";
-    QUIC_LOG(ERROR) << "unexpected writable event for read-only pipe "
-                    << top_path_ << ", shutting down";
-    epoll_server_->UnregisterFD(fd);
-    close(fd);
+    QUIC_LOG(WARNING) << "EPOLLHUP(client(" << fd << "))";
+    CloseClient(*client);
     return;
   }
 
   if (event->in_events & EPOLLERR) {
     // QUIC_DVLOG(1)
-    QUIC_LOG(WARNING) << "EPOLLERR(" << top_path_ << ")";
-    epoll_server_->UnregisterFD(fd);
-    close(fd);
+    QUIC_LOG(WARNING) << "EPOLLERR(client(" << fd << "))";
+    CloseClient(*client);
     return;
   }
   /*
@@ -284,10 +342,10 @@ void QuicEpollUDSPusher::OnEvent(int fd, QuicEpollEvent* event) {
 }
 
 void QuicEpollUDSPusher::OnUnregistration(int fd, bool replaced) {
-  QUIC_LOG(WARNING) << "OnUnregistration(" << top_path_ << ")";
+  QUIC_LOG(WARNING) << "OnUnregistration(" << path_ << ")";
 }
 void QuicEpollUDSPusher::OnShutdown(QuicEpollServer* eps, int fd) {
-  QUIC_LOG(WARNING) << "OnShutdown(" << top_path_ << ")";
+  QUIC_LOG(WARNING) << "OnShutdown(" << path_ << ")";
   Shutdown();
 }
 
@@ -295,12 +353,16 @@ void QuicEpollUDSPusher::handleConnection() {
   struct sockaddr_un remote;
   unsigned int sock_len = 0;
 
-  Client& client = *new Client;
+  Client *current_client = new Client();
+  Client& client = *current_client;
 
   QUIC_LOG(INFO) << ("Waiting for connection.... \n");
 
   if ((client.fd = accept(topcmd_fd_, (struct sockaddr*)&remote, &sock_len)) == -1) {
-    QUIC_LOG(ERROR) << ("Error on accept() call \n");
+    int got_err = errno;
+    QUIC_LOG(ERROR) << "error(" << got_err << ") accepting on \"" << path_
+                    << "\": " << get_strerror(got_err);
+    delete current_client;
     return;
   }
 
@@ -308,17 +370,16 @@ void QuicEpollUDSPusher::handleConnection() {
 
   epoll_server_->RegisterFDForRead(client.fd, this);
 
-  clients_.insert(std::make_pair(client.fd, &client));
+  clients_.insert(std::make_pair(client.fd, current_client));
 }
 
-void QuicEpollUDSPusher::handleComingData() {
+void QuicEpollUDSPusher::handleComingData(Client& client) {
   
-  Client& client = *current_client;
   auto& fd = client.fd;
   auto& filled_len = client.filled_len;
   auto& client_buffer = client.buffer;
 
-  QUIC_LOG(WARNING) << "EPOLLIN(" << top_path_ << ")";
+  QUIC_LOG(WARNING) << "EPOLLIN(" << path_ << ")";
   enum {
     kMinReadSpace = 1024 * 4,
     kLoopLimit = 5,
@@ -341,9 +402,9 @@ void QuicEpollUDSPusher::handleComingData() {
         break;
       }
       QUIC_LOG(ERROR) << "error(" << got_err << ") reading from fifo \""
-                      << top_path_ << "\": " << get_strerror(got_err)
+                      << path_ << "\": " << get_strerror(got_err)
                       << ", shutting down";
-      Shutdown();
+      CloseClient(client);
       return;
     }
     if (len == 0) {
@@ -354,16 +415,15 @@ void QuicEpollUDSPusher::handleComingData() {
   }
 }
 
-bool QuicEpollUDSPusher::parseCommand(quic::PushServer& input_cmd,
-                                      size_t size,
-                                      const uint8_t* buf,
-                                      ssize_t& consumed,
-                                      QuicPushParseErrorCode& err) {
+bool QuicEpollUDSPusher::parseCommand(
+    QuicEpollUDSPusher::Client& client,
+    quic::PushCmd& input_cmd,
+    size_t size,
+    const uint8_t* buf,
+    ssize_t& consumed,
+    QuicPushParseErrorCode& err) {
 
-  auto &client_buffer = current_client->buffer;
-                                        
-  google::protobuf::io::ArrayInputStream input_stream(client_buffer.data(),
-                                                      client_buffer.size());
+  google::protobuf::io::ArrayInputStream input_stream(buf, size);
 
   bool read_success =
       quic::PushUtils::readDelimitedFrom(&input_stream, &input_cmd, &consumed);
@@ -371,14 +431,34 @@ bool QuicEpollUDSPusher::parseCommand(quic::PushServer& input_cmd,
   return read_success;
 }
 
-void QuicEpollUDSPusher::RunCommand(const quic::PushServer& cmd)
+void QuicEpollUDSPusher::RunCommand(const quic::PushCmd& cmd,
+    quic::PushCmd_Response& resp)
 {
-  /*if (cmd.Command_base())
-  {
-    
+  switch (cmd.Command_case()) {
+    case quic::PushCmd::kMakePool: {
+      QUIC_LOG(WARNING) << "makepool id:" << cmd.make_pool().pool_id();
+      resp.set_success(true);
+      resp.mutable_make_pool_resp()->set_pool_token("hi2");
+      break;
+    }
+    case quic::PushCmd::kMakeChannel: {
+      QUIC_LOG(WARNING) << "makechannel pool_token:" << cmd.make_channel().pool_token();
+      resp.set_success(true);
+      resp.mutable_make_channel_resp()->set_channel_token("hi3");
+      break;
+    }
+    case quic::PushCmd::kFullStream: {
+      QUIC_LOG(WARNING) << "fullstream data size:" << cmd.full_stream().data().size();
+      resp.set_success(true);
+      break;
+    }
+    default: {
+      resp.set_success(false);
+      std::ostringstream str;
+      str << "unimplemented command: " << (int)cmd.Command_case();
+      resp.set_error_message(str.str());
+    }
   }
-  else*/
-   QUIC_LOG(WARNING) << "pool id from the message:" << cmd.activate_pool().pool_id();
 }
 
 }  // namespace quic

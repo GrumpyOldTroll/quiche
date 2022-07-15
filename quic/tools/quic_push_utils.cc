@@ -44,8 +44,9 @@ bool readDelimitedFrom(google::protobuf::io::ZeroCopyInputStream* rawInput,
   auto limit = input.PushLimit(size);
 
   // Parse the message.
-  if (!message->MergePartialFromCodedStream(&input) ||
-      !input.ConsumedEntireMessage()) {
+  //if (!message->MergePartialFromCodedStream(&input) ||
+  //    !input.ConsumedEntireMessage()) {
+  if (!message->MergeFromCodedStream(&input)) {
     if (consumed)
       *consumed = -((ssize_t)size - (ssize_t)rawInput->ByteCount() + 1);
     return false;
