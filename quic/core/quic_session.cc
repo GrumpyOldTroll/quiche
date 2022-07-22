@@ -2712,6 +2712,7 @@ bool QuicSession::OnMcAnnounceFrame(const QuicMcAnnounceFrame& frame) {
 bool QuicSession::OnMcKeyFrame(const QuicMcKeyFrame& frame) {
   QuicChannel* channel = GetChannel(frame.channel_id);
   if(channel == NULL) {
+      //TODO: Received key for channel that hasnt received an announce frame yet, buffering the key:
       return false;
   }
   bool add_key = channel->addKey(frame.from_packet_number, &frame.key[0]);

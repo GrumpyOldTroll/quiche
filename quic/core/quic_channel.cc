@@ -8,6 +8,8 @@ namespace quic {
       QuicIpAddress source_ip,
       QuicIpAddress group_ip,
       uint16_t port,
+      // TODO: not needed, just pass to framer
+      // TODO: add (multicast) framer object
       QuicAEADAlgorithmId  header_aead_algorithm,
       const uint8_t* header_key,
       QuicAEADAlgorithmId aead_algorithm,
@@ -24,6 +26,7 @@ namespace quic {
     this->source_ip_ = source_ip;
     this->group_ip_ = group_ip;
     this->port_ = port;
+    // TODO: Initialize Framer and pass these to it instead
     this->header_aead_algorithm_ = header_aead_algorithm;
     this->header_key_ = header_key;
     this->aead_algorithm_ = aead_algorithm;
@@ -45,6 +48,7 @@ namespace quic {
       if (this->state_ == QuicChannel::initialized) {
           this->state_ =  QuicChannel::unjoined;
       }
+      // TODO: Pass key to framer instead
       key_map_.insert(std::make_pair(from_packet_number, key));
       return true;
   }
@@ -100,6 +104,7 @@ namespace quic {
       this->channel_state_sn_++;
   }
 
+  //TODO: Probably not required as handled by framer now
   const uint8_t* QuicChannel::getKeyForPacket(QuicPacketCount pid) {
       for(KeyMap::iterator it = key_map_.begin(); it != key_map_.end(); ++it) {
           if (it->first<pid) {

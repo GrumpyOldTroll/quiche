@@ -20,6 +20,8 @@ class QUIC_EXPORT_PRIVATE QuicChannel {
       QuicIpAddress source_ip,
       QuicIpAddress group_ip,
       uint16_t port,
+      // TODO: not needed, just pass to framer
+      // TODO: add (multicast) framer object
       QuicAEADAlgorithmId  header_aead_algorithm,
       const uint8_t* header_key,
       QuicAEADAlgorithmId aead_algorithm,

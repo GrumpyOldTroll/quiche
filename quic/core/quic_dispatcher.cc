@@ -377,6 +377,7 @@ void QuicDispatcher::InitializeWithWriter(QuicPacketWriter* writer) {
   time_wait_list_manager_.reset(CreateQuicTimeWaitListManager());
 }
 
+// TODO: If packet processing in the framer itself is not enough we can use this and call it when receiving a packet with mcrx
 void QuicDispatcher::ProcessPacket(const QuicSocketAddress& self_address,
                                    const QuicSocketAddress& peer_address,
                                    const QuicReceivedPacket& packet) {

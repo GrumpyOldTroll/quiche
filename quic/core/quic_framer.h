@@ -814,6 +814,7 @@ class QUIC_EXPORT_PRIVATE QuicFramer {
                               uint64_t* full_packet_number,
                               std::vector<char>* associated_data);
 
+  // TODO: We can potentially just use this to process the packets once we received them with multicast
   bool ProcessDataPacket(QuicDataReader* reader,
                          QuicPacketHeader* header,
                          const QuicEncryptedPacket& packet,
