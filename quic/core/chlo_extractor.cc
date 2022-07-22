@@ -80,13 +80,13 @@ class ChloFramerVisitor : public QuicFramerVisitorInterface,
   bool OnMessageFrame(const QuicMessageFrame& frame) override;
   bool OnHandshakeDoneFrame(const QuicHandshakeDoneFrame& frame) override;
   bool OnAckFrequencyFrame(const QuicAckFrequencyFrame& farme) override;
-  bool OnMcChannelAnnounceFrame(const QuicMcChannelAnnounceFrame& frame) override;
-  bool OnMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame& frame) override;
-  bool OnMcChannelJoinFrame(const QuicMcChannelJoinFrame& frame) override;
-  bool OnMcChannelLeaveFrame(const QuicMcChannelLeaveFrame& frame) override;
-  bool OnMcChannelRetireFrame(const QuicMcChannelRetireFrame& frame) override;
-  bool OnMcClientChannelStateFrame(const QuicMcClientChannelStateFrame& frame) override;
-  bool OnMcClientLimitsFrame(const QuicMcClientLimitsFrame& frame) override;
+  bool OnMcAnnounceFrame(const QuicMcAnnounceFrame& frame) override;
+  bool OnMcKeyFrame(const QuicMcKeyFrame& frame) override;
+  bool OnMcJoinFrame(const QuicMcJoinFrame& frame) override;
+  bool OnMcLeaveFrame(const QuicMcLeaveFrame& frame) override;
+  bool OnMcRetireFrame(const QuicMcRetireFrame& frame) override;
+  bool OnMcStateFrame(const QuicMcStateFrame& frame) override;
+  bool OnMcLimitsFrame(const QuicMcLimitsFrame& frame) override;
   void OnPacketComplete() override {}
   bool IsValidStatelessResetToken(
       const StatelessResetToken& token) const override;
@@ -310,38 +310,38 @@ bool ChloFramerVisitor::OnAckFrequencyFrame(
   return true;
 }
 
-bool ChloFramerVisitor::OnMcChannelJoinFrame(
-    const QuicMcChannelJoinFrame& /*frame*/) {
+bool ChloFramerVisitor::OnMcJoinFrame(
+    const QuicMcJoinFrame& /*frame*/) {
   return true;
 }
 
-bool ChloFramerVisitor::OnMcChannelLeaveFrame(
-    const QuicMcChannelLeaveFrame& /*frame*/) {
+bool ChloFramerVisitor::OnMcLeaveFrame(
+    const QuicMcLeaveFrame& /*frame*/) {
   return true;
 }
 
-bool ChloFramerVisitor::OnMcChannelAnnounceFrame(
-    const QuicMcChannelAnnounceFrame& /*frame*/) {
+bool ChloFramerVisitor::OnMcAnnounceFrame(
+    const QuicMcAnnounceFrame& /*frame*/) {
   return true;
 }
 
-bool ChloFramerVisitor::OnMcChannelPropertiesFrame(
-    const QuicMcChannelPropertiesFrame& /*frame*/) {
+bool ChloFramerVisitor::OnMcKeyFrame(
+    const QuicMcKeyFrame& /*frame*/) {
   return true;
 }
 
-bool ChloFramerVisitor::OnMcChannelRetireFrame(
-    const QuicMcChannelRetireFrame& /*frame*/) {
+bool ChloFramerVisitor::OnMcRetireFrame(
+    const QuicMcRetireFrame& /*frame*/) {
   return true;
 }
 
-bool ChloFramerVisitor::OnMcClientChannelStateFrame(
-    const QuicMcClientChannelStateFrame& /*frame*/) {
+bool ChloFramerVisitor::OnMcStateFrame(
+    const QuicMcStateFrame& /*frame*/) {
   return true;
 }
 
-bool ChloFramerVisitor::OnMcClientLimitsFrame(
-    const QuicMcClientLimitsFrame& /*frame*/) {
+bool ChloFramerVisitor::OnMcLimitsFrame(
+    const QuicMcLimitsFrame& /*frame*/) {
   return true;
 }
 

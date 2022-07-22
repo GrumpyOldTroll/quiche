@@ -108,8 +108,8 @@ class QUIC_EXPORT_PRIVATE QuicControlFrameManager {
   // immediately.
   void WriteOrBufferNewToken(absl::string_view token);
 
-  // Tries to send a MC_CHANNEL_ANNOUNCE_V4 or V6 frame.  Buffers the frame if it cannot be sent immediately
-  void WriteOrBufferMcChannelAnnounce(
+  // Tries to send a MC_ANNOUNCE_V4 or V6 frame.  Buffers the frame if it cannot be sent immediately
+  void WriteOrBufferMcAnnounce(
       QuicChannelId channel_id,
       QuicIpAddress source_ip,
       QuicIpAddress group_ip,
@@ -118,19 +118,38 @@ class QUIC_EXPORT_PRIVATE QuicControlFrameManager {
       size_t header_key_len,
       const uint8_t* header_key,
       QuicAEADAlgorithmId aead_algorithm,
-      QuicHashAlgorithmId hash_algorithm);
+      QuicHashAlgorithmId hash_algorithm,
+     uint64_t max_rate,
+     uint64_t max_idle_time,
+     uint64_t ack_bundle_size);
 
-  // Tries to send a MC_CHANNEL_PROPERTIES frame.  Buffers the frame if it cannot be sent immediately
-  void WriteOrBufferMcChannelProperties(
+  // Tries to send a MC_KEY frame.  Buffers the frame if it cannot be sent immediately
+  void WriteOrBufferMcKey(
       QuicChannelId channel_id,
-      QuicChannelPropertiesSequenceNumber channel_properties_sn,
+      QuicChannelKeySequenceNumber channel_key_sn,
       QuicPacketCount from_packet_number,
-      QuicPacketCount until_packet_number,
       size_t key_len,
-      const uint8_t* key,
-      uint64_t max_rate,
-      uint64_t max_idle_time,
-      uint64_t ack_bundle_size);
+      const uint8_t* key);
+
+  // Tries to send a MC_JOIN frame.  Buffers the frame if it cannot be sent immediately
+  void WriteOrBufferMcJoin(
+     QuicChannelId channel_id,
+     QuicClientLimitsSequenceNumber limits_sn,
+     QuicClientChannelStateSequenceNumber channel_state_sn,
+     QuicChannelKeySequenceNumber channel_key_sn);
+
+  // Tries to send a MC_LEAVE frame.  Buffers the frame if it cannot be sent immediately
+  void WriteOrBufferMcLeave(
+     QuicChannelId channel_id,
+     QuicClientChannelStateSequenceNumber channel_state_sn,
+     QuicPacketCount after_packet_number);
+
+  // Tries to send a MC_CLIENT_CHANNEL_STATE frame.  Buffers the frame if it cannot be sent immediately
+  void WriteOrBufferMcState(
+      QuicChannelId channel_id,
+      QuicClientChannelStateSequenceNumber channel_state_sn,
+      QuicClientChannelStateState state,
+      QuicClientChannelStateLeaveReason reason);
 
   // Called when |frame| gets acked. Returns true if |frame| gets acked for the
   // first time, return false otherwise.

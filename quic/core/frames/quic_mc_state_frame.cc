@@ -2,11 +2,11 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "quic/core/frames/quic_mc_client_channel_state_frame.h"
+#include "quic/core/frames/quic_mc_state_frame.h"
 
 namespace quic {
 
-QuicMcClientChannelStateFrame::QuicMcClientChannelStateFrame(
+QuicMcStateFrame::QuicMcStateFrame(
     QuicControlFrameId control_frame_id,
     QuicChannelId channel_id,
     QuicClientChannelStateSequenceNumber channel_state_sn,
@@ -20,7 +20,7 @@ QuicMcClientChannelStateFrame::QuicMcClientChannelStateFrame(
 }
 
 std::ostream& operator<<(std::ostream& os,
-                         const QuicMcClientChannelStateFrame& frame) {
+                         const QuicMcStateFrame& frame) {
   os << "{ control_frame_id: " << frame.control_frame_id
      << ", channel_id: " << frame.channel_id
      << ", channel_state_sn: " << frame.channel_state_sn

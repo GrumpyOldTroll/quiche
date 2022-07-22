@@ -701,20 +701,20 @@ size_t QuicFramer::GetRetransmittableControlFrameSize(
       return kQuicFrameTypeSize;
     case ACK_FREQUENCY_FRAME:
       return GetAckFrequencyFrameSize(*frame.ack_frequency_frame);
-    case MC_CHANNEL_ANNOUNCE_FRAME:
-      return GetMcChannelAnnounceFrameSize(*frame.mc_channel_announce_frame);
-    case MC_CHANNEL_PROPERTIES_FRAME:
-      return GetMcChannelPropertiesFrameSize(*frame.mc_channel_properties_frame);
-    case MC_CHANNEL_JOIN_FRAME:
-      return GetMcChannelJoinFrameSize(*frame.mc_channel_join_frame);
-    case MC_CHANNEL_LEAVE_FRAME:
-      return GetMcChannelLeaveFrameSize(*frame.mc_channel_leave_frame);
-    case MC_CHANNEL_RETIRE_FRAME:
-      return GetMcChannelRetireFrameSize(*frame.mc_channel_retire_frame);
-    case MC_CLIENT_CHANNEL_STATE_FRAME:
-      return GetMcClientChannelStateFrameSize(*frame.mc_client_channel_state_frame);
-    case MC_CLIENT_LIMITS_FRAME:
-      return GetMcClientLimitsFrameSize(*frame.mc_client_limits_frame);
+    case MC_ANNOUNCE_FRAME:
+      return GetMcAnnounceFrameSize(*frame.mc_announce_frame);
+    case MC_KEY_FRAME:
+      return GetMcKeyFrameSize(*frame.mc_key_frame);
+    case MC_JOIN_FRAME:
+      return GetMcJoinFrameSize(*frame.mc_join_frame);
+    case MC_LEAVE_FRAME:
+      return GetMcLeaveFrameSize(*frame.mc_leave_frame);
+    case MC_RETIRE_FRAME:
+      return GetMcRetireFrameSize(*frame.mc_retire_frame);
+    case MC_STATE_FRAME:
+      return GetMcStateFrameSize(*frame.mc_state_frame);
+    case MC_LIMITS_FRAME:
+      return GetMcLimitsFrameSize(*frame.mc_limits_frame);
     case STREAM_FRAME:
     case ACK_FRAME:
     case STOP_WAITING_FRAME:
@@ -722,8 +722,7 @@ size_t QuicFramer::GetRetransmittableControlFrameSize(
     case PADDING_FRAME:
     case MESSAGE_FRAME:
     case CRYPTO_FRAME:
-    case MC_CHANNEL_INTEGRITY_FRAMEX:
-    case MC_PATH_RESPONSE_FRAMEX:
+    case MC_INTEGRITY_FRAMEX:
     case NUM_FRAME_TYPES:
       QUICHE_DCHECK(false);
       return 0;
@@ -1249,57 +1248,56 @@ size_t QuicFramer::AppendIetfFrames(const QuicFrames& frames,
           return 0;
         }
         break;
-      case MC_CHANNEL_ANNOUNCE_FRAME:
-        if (!AppendMcChannelAnnounceFrame(*frame.mc_channel_announce_frame, writer)) {
+      case MC_ANNOUNCE_FRAME:
+        if (!AppendMcAnnounceFrame(*frame.mc_announce_frame, writer)) {
           QUIC_BUG(quic_bug_10850_52)
-              << "McChannelAnnounceFrame failed: " << detailed_error();
+              << "McAnnounceFrame failed: " << detailed_error();
           return 0;
         }
         break;
-      case MC_CHANNEL_PROPERTIES_FRAME:
-        if (!AppendMcChannelPropertiesFrame(*frame.mc_channel_properties_frame, writer)) {
+      case MC_KEY_FRAME:
+        if (!AppendMcKeyFrame(*frame.mc_key_frame, writer)) {
           QUIC_BUG(quic_bug_10850_52)
-              << "McChannelPropertiesFrame failed: " << detailed_error();
+              << "McKeyFrame failed: " << detailed_error();
           return 0;
         }
         break;
-      case MC_CHANNEL_JOIN_FRAME:
-        if (!AppendMcChannelJoinFrame(*frame.mc_channel_join_frame, writer)) {
+      case MC_JOIN_FRAME:
+        if (!AppendMcJoinFrame(*frame.mc_join_frame, writer)) {
           QUIC_BUG(quic_bug_10850_52)
-              << "McChannelJoinFrame failed: " << detailed_error();
+              << "McJoinFrame failed: " << detailed_error();
           return 0;
         }
         break;
-      case MC_CHANNEL_LEAVE_FRAME:
-        if (!AppendMcChannelLeaveFrame(*frame.mc_channel_leave_frame, writer)) {
+      case MC_LEAVE_FRAME:
+        if (!AppendMcLeaveFrame(*frame.mc_leave_frame, writer)) {
           QUIC_BUG(quic_bug_10850_53)
-              << "McChannelLeaveFrame failed: " << detailed_error();
+              << "McLeaveFrame failed: " << detailed_error();
           return 0;
         }
         break;
-      case MC_CHANNEL_RETIRE_FRAME:
-        if (!AppendMcChannelRetireFrame(*frame.mc_channel_retire_frame, writer)) {
+      case MC_RETIRE_FRAME:
+        if (!AppendMcRetireFrame(*frame.mc_retire_frame, writer)) {
           QUIC_BUG(quic_bug_10850_54)
-              << "McChannelRetireFrame failed: " << detailed_error();
+              << "McRetireFrame failed: " << detailed_error();
           return 0;
         }
         break;
-      case MC_CLIENT_CHANNEL_STATE_FRAME:
-        if (!AppendMcClientChannelStateFrame(*frame.mc_client_channel_state_frame, writer)) {
+      case MC_STATE_FRAME:
+        if (!AppendMcStateFrame(*frame.mc_state_frame, writer)) {
           QUIC_BUG(quic_bug_10850_55)
-              << "McClientChannelStateFrame failed: " << detailed_error();
+              << "McStateFrame failed: " << detailed_error();
           return 0;
         }
         break;
-      case MC_CLIENT_LIMITS_FRAME:
-        if (!AppendMcClientLimitsFrame(*frame.mc_client_limits_frame, writer)) {
+      case MC_LIMITS_FRAME:
+        if (!AppendMcLimitsFrame(*frame.mc_limits_frame, writer)) {
           QUIC_BUG(quic_bug_10850_56)
-              << "McClientLimitsFrame failed: " << detailed_error();
+              << "McLimitsFrame failed: " << detailed_error();
           return 0;
         }
         break;
-      case MC_CHANNEL_INTEGRITY_FRAMEX:
-      case MC_PATH_RESPONSE_FRAMEX:
+      case MC_INTEGRITY_FRAMEX:
       default:
         set_detailed_error("Tried to append unknown frame type.");
         RaiseError(QUIC_INVALID_FRAME_DATA);
@@ -3483,8 +3481,8 @@ bool QuicFramer::ProcessIetfFrameData(QuicDataReader* reader,
             return RaiseError(QUIC_INVALID_FRAME_DATA);
           }
           ABSL_FALLTHROUGH_INTENDED;
-        case IETF_MC_CHANNEL_ACK_ECN:
-        case IETF_MC_CHANNEL_ACK:
+        case IETF_MC_ACK_ECN:
+        case IETF_MC_ACK:
         case IETF_ACK_ECN:
         case IETF_ACK: {
           QuicAckFrame frame;
@@ -3581,16 +3579,16 @@ bool QuicFramer::ProcessIetfFrameData(QuicDataReader* reader,
           }
           break;
         }
-        case IETF_MC_CHANNEL_ANNOUNCE_V4:
-        case IETF_MC_CHANNEL_ANNOUNCE_V6: {
-          QuicMcChannelAnnounceFrame frame;
-          if (!ProcessMcChannelAnnounceFrame(reader, frame_type, &frame)) {
+        case IETF_MC_ANNOUNCE_V4:
+        case IETF_MC_ANNOUNCE_V6: {
+          QuicMcAnnounceFrame frame;
+          if (!ProcessMcAnnounceFrame(reader, frame_type, &frame)) {
             return RaiseError(QUIC_INVALID_FRAME_DATA);
           }
           QUIC_DVLOG(2) << ENDPOINT << "Processing IETF multicast channel Announce frame "
                         << frame;
 
-          if (!visitor_->OnMcChannelAnnounceFrame(frame)) {
+          if (!visitor_->OnMcAnnounceFrame(frame)) {
             QUIC_DVLOG(1) << ENDPOINT
                           << "Visitor asked to stop further processing.";
             // Returning true since there was no parsing error.
@@ -3598,15 +3596,15 @@ bool QuicFramer::ProcessIetfFrameData(QuicDataReader* reader,
           }
           break;
         }
-        case IETF_MC_CHANNEL_PROPERTIES: {
-          QuicMcChannelPropertiesFrame frame;
-          if (!ProcessMcChannelPropertiesFrame(reader, &frame)) {
+        case IETF_MC_KEY: {
+          QuicMcKeyFrame frame;
+          if (!ProcessMcKeyFrame(reader, &frame)) {
             return RaiseError(QUIC_INVALID_FRAME_DATA);
           }
           QUIC_DVLOG(2) << ENDPOINT << "Processing IETF multicast channel properties frame "
                         << frame;
 
-          if (!visitor_->OnMcChannelPropertiesFrame(frame)) {
+          if (!visitor_->OnMcKeyFrame(frame)) {
             QUIC_DVLOG(1) << ENDPOINT
                           << "Visitor asked to stop further processing.";
             // Returning true since there was no parsing error.
@@ -3614,15 +3612,15 @@ bool QuicFramer::ProcessIetfFrameData(QuicDataReader* reader,
           }
           break;
         }
-        case IETF_MC_CHANNEL_JOIN: {
-          QuicMcChannelJoinFrame frame;
-          if (!ProcessMcChannelJoinFrame(reader, &frame)) {
+        case IETF_MC_JOIN: {
+          QuicMcJoinFrame frame;
+          if (!ProcessMcJoinFrame(reader, &frame)) {
             return RaiseError(QUIC_INVALID_FRAME_DATA);
           }
           QUIC_DVLOG(2) << ENDPOINT << "Processing IETF multicast channel join frame "
                         << frame;
 
-          if (!visitor_->OnMcChannelJoinFrame(frame)) {
+          if (!visitor_->OnMcJoinFrame(frame)) {
             QUIC_DVLOG(1) << ENDPOINT
                           << "Visitor asked to stop further processing.";
             // Returning true since there was no parsing error.
@@ -3630,15 +3628,15 @@ bool QuicFramer::ProcessIetfFrameData(QuicDataReader* reader,
           }
           break;
         }
-        case IETF_MC_CHANNEL_LEAVE: {
-          QuicMcChannelLeaveFrame frame;
-          if (!ProcessMcChannelLeaveFrame(reader, &frame)) {
+        case IETF_MC_LEAVE: {
+          QuicMcLeaveFrame frame;
+          if (!ProcessMcLeaveFrame(reader, &frame)) {
             return RaiseError(QUIC_INVALID_FRAME_DATA);
           }
           QUIC_DVLOG(2) << ENDPOINT << "Processing IETF multicast channel leave frame "
                         << frame;
 
-          if (!visitor_->OnMcChannelLeaveFrame(frame)) {
+          if (!visitor_->OnMcLeaveFrame(frame)) {
             QUIC_DVLOG(1) << ENDPOINT
                           << "Visitor asked to stop further processing.";
             // Returning true since there was no parsing error.
@@ -3646,15 +3644,15 @@ bool QuicFramer::ProcessIetfFrameData(QuicDataReader* reader,
           }
           break;
         }
-        case IETF_MC_CHANNEL_RETIRE: {
-          QuicMcChannelRetireFrame frame;
-          if (!ProcessMcChannelRetireFrame(reader, &frame)) {
+        case IETF_MC_RETIRE: {
+          QuicMcRetireFrame frame;
+          if (!ProcessMcRetireFrame(reader, &frame)) {
             return RaiseError(QUIC_INVALID_FRAME_DATA);
           }
           QUIC_DVLOG(2) << ENDPOINT << "Processing IETF multicast channel retire frame "
                         << frame;
 
-          if (!visitor_->OnMcChannelRetireFrame(frame)) {
+          if (!visitor_->OnMcRetireFrame(frame)) {
             QUIC_DVLOG(1) << ENDPOINT
                           << "Visitor asked to stop further processing.";
             // Returning true since there was no parsing error.
@@ -3662,15 +3660,15 @@ bool QuicFramer::ProcessIetfFrameData(QuicDataReader* reader,
           }
           break;
         }
-        case IETF_MC_CLIENT_CHANNEL_STATE: {
-          QuicMcClientChannelStateFrame frame;
-          if (!ProcessMcClientChannelStateFrame(reader, &frame)) {
+        case IETF_MC_STATE: {
+          QuicMcStateFrame frame;
+          if (!ProcessMcStateFrame(reader, &frame)) {
             return RaiseError(QUIC_INVALID_FRAME_DATA);
           }
           QUIC_DVLOG(2) << ENDPOINT << "Processing IETF multicast client channel state frame "
                         << frame;
 
-          if (!visitor_->OnMcClientChannelStateFrame(frame)) {
+          if (!visitor_->OnMcStateFrame(frame)) {
             QUIC_DVLOG(1) << ENDPOINT
                           << "Visitor asked to stop further processing.";
             // Returning true since there was no parsing error.
@@ -3678,18 +3676,18 @@ bool QuicFramer::ProcessIetfFrameData(QuicDataReader* reader,
           }
           break;
         }
-        case IETF_MC_CLIENT_LIMITS: {
-          QuicMcClientLimitsFrame frame;
-          if (!ProcessMcClientLimitsFrame(reader, &frame)) {
+        case IETF_MC_LIMITS: {
+          QuicMcLimitsFrame frame;
+          if (!ProcessMcLimitsFrame(reader, &frame)) {
             return RaiseError(QUIC_INVALID_FRAME_DATA);
           }
           QUIC_DVLOG(2) << ENDPOINT << "Processing IETF multicast client limits frame "
                         << frame;
 
 //#if NO_VISITORS_TESTING
-//          QUIC_LOG(WARNING) << "Got MC_CLIENT_LIMITS frame: " << frame;
+//          QUIC_LOG(WARNING) << "Got MC_LIMITS frame: " << frame;
 //#else
-          if (!visitor_->OnMcClientLimitsFrame(frame)) {
+          if (!visitor_->OnMcLimitsFrame(frame)) {
             QUIC_DVLOG(1) << ENDPOINT
                           << "Visitor asked to stop further processing.";
             // Returning true since there was no parsing error.
@@ -3698,9 +3696,8 @@ bool QuicFramer::ProcessIetfFrameData(QuicDataReader* reader,
 //#endif
           break;
         }
-        case IETF_MC_CHANNEL_INTEGRITY_NO_LENGTHX:
-        case IETF_MC_CHANNEL_INTEGRITYX:
-        case IETF_MC_PATH_RESPONSEX: {
+        case IETF_MC_INTEGRITY_NO_LENGTHX:
+        case IETF_MC_INTEGRITYX: {
           set_detailed_error("Unimplemented mc frame type.");
           QUIC_DLOG(WARNING)
               << ENDPOINT
@@ -4142,8 +4139,8 @@ bool QuicFramer::ProcessTimestampsInAckFrame(uint8_t num_received_packets,
 bool QuicFramer::ProcessIetfAckFrame(QuicDataReader* reader,
                                      uint64_t frame_type,
                                      QuicAckFrame* ack_frame) {
-  if (frame_type == IETF_MC_CHANNEL_ACK ||
-      frame_type == IETF_MC_CHANNEL_ACK_ECN) {
+  if (frame_type == IETF_MC_ACK ||
+      frame_type == IETF_MC_ACK_ECN) {
     if (!reader->ReadLengthPrefixedChannelId(&ack_frame->channel_id)) {
       set_detailed_error("Unable to read mc channel ack frame channel id.");
       return false;
@@ -4290,7 +4287,7 @@ bool QuicFramer::ProcessIetfAckFrame(QuicDataReader* reader,
     if (!ProcessIetfTimestampsInAckFrame(ack_frame->largest_acked, reader)) {
       return false;
     }
-  } else if (frame_type == IETF_ACK_ECN || frame_type == IETF_MC_CHANNEL_ACK_ECN) {
+  } else if (frame_type == IETF_ACK_ECN || frame_type == IETF_MC_ACK_ECN) {
     ack_frame->ecn_counters_populated = true;
     if (!reader->ReadVarInt62(&ack_frame->ect_0_count)) {
       set_detailed_error("Unable to read ack ect_0_count.");
@@ -5547,41 +5544,40 @@ bool QuicFramer::AppendIetfFrameType(const QuicFrame& frame,
     case ACK_FREQUENCY_FRAME:
       type_byte = IETF_ACK_FREQUENCY;
       break;
-    case MC_CHANNEL_ANNOUNCE_FRAME:
-      if (frame.mc_channel_announce_frame->source_ip.IsIPv4() &&
-          frame.mc_channel_announce_frame->group_ip.IsIPv4()) {
-        type_byte = IETF_MC_CHANNEL_ANNOUNCE_V4;
-      } else if (frame.mc_channel_announce_frame->source_ip.IsIPv6() &&
-          frame.mc_channel_announce_frame->group_ip.IsIPv6()) {
-        type_byte = IETF_MC_CHANNEL_ANNOUNCE_V6;
+    case MC_ANNOUNCE_FRAME:
+      if (frame.mc_announce_frame->source_ip.IsIPv4() &&
+          frame.mc_announce_frame->group_ip.IsIPv4()) {
+        type_byte = IETF_MC_ANNOUNCE_V4;
+      } else if (frame.mc_announce_frame->source_ip.IsIPv6() &&
+          frame.mc_announce_frame->group_ip.IsIPv6()) {
+        type_byte = IETF_MC_ANNOUNCE_V6;
       } else {
         QUIC_BUG(quic_bug_10850_75)
             << "Attempt to generate an announce frame with bad ips: "
-            << frame.mc_channel_announce_frame->source_ip << ", "
-            << frame.mc_channel_announce_frame->group_ip;
+            << frame.mc_announce_frame->source_ip << ", "
+            << frame.mc_announce_frame->group_ip;
         return false;
       }
       break;
-    case MC_CHANNEL_PROPERTIES_FRAME:
-      type_byte = IETF_MC_CHANNEL_PROPERTIES;
+    case MC_KEY_FRAME:
+      type_byte = IETF_MC_KEY;
       break;
-    case MC_CHANNEL_JOIN_FRAME:
-      type_byte = IETF_MC_CHANNEL_JOIN;
+    case MC_JOIN_FRAME:
+      type_byte = IETF_MC_JOIN;
       break;
-    case MC_CHANNEL_LEAVE_FRAME:
-      type_byte = IETF_MC_CHANNEL_LEAVE;
+    case MC_LEAVE_FRAME:
+      type_byte = IETF_MC_LEAVE;
       break;
-    case MC_CHANNEL_RETIRE_FRAME:
-      type_byte = IETF_MC_CHANNEL_RETIRE;
+    case MC_RETIRE_FRAME:
+      type_byte = IETF_MC_RETIRE;
       break;
-    case MC_CLIENT_CHANNEL_STATE_FRAME:
-      type_byte = IETF_MC_CLIENT_CHANNEL_STATE;
+    case MC_STATE_FRAME:
+      type_byte = IETF_MC_STATE;
       break;
-    case MC_CLIENT_LIMITS_FRAME:
-      type_byte = IETF_MC_CLIENT_LIMITS;
+    case MC_LIMITS_FRAME:
+      type_byte = IETF_MC_LIMITS;
       break;
-    case MC_CHANNEL_INTEGRITY_FRAMEX:
-    case MC_PATH_RESPONSE_FRAMEX:
+    case MC_INTEGRITY_FRAMEX:
     default:
       QUIC_BUG(quic_bug_10850_75)
           << "Attempt to generate a frame type for an unsupported value: "
@@ -6245,7 +6241,7 @@ bool QuicFramer::AppendStopWaitingFrame(const QuicPacketHeader& header,
 uint64_t QuicFramer::GetIetfAckFrameType(const QuicAckFrame& frame) const {
   uint64_t type = IETF_ACK;
   if (!frame.channel_id.IsEmpty()) {
-    type = IETF_MC_CHANNEL_ACK;
+    type = IETF_MC_ACK;
   }
   if (UseIetfAckWithReceiveTimestamp(frame)) {
     type = IETF_ACK_RECEIVE_TIMESTAMPS;
@@ -6255,7 +6251,7 @@ uint64_t QuicFramer::GetIetfAckFrameType(const QuicAckFrame& frame) const {
     if (frame.channel_id.IsEmpty()) {
       type = IETF_ACK_ECN;
     } else {
-      type = IETF_MC_CHANNEL_ACK_ECN;
+      type = IETF_MC_ACK_ECN;
     }
   }
   return type;
@@ -6265,7 +6261,7 @@ bool QuicFramer::AppendIetfAckFrameAndTypeByte(const QuicAckFrame& frame,
                                                QuicDataWriter* writer) {
   uint64_t type = GetIetfAckFrameType(frame);
   uint64_t ecn_size = 0;
-  if (type == IETF_ACK_ECN || type == IETF_MC_CHANNEL_ACK_ECN) {
+  if (type == IETF_ACK_ECN || type == IETF_MC_ACK_ECN) {
     ecn_size = (QuicDataWriter::GetVarInt62Len(frame.ect_0_count) +
                 QuicDataWriter::GetVarInt62Len(frame.ect_1_count) +
                 QuicDataWriter::GetVarInt62Len(frame.ecn_ce_count));
@@ -6368,7 +6364,7 @@ bool QuicFramer::AppendIetfAckFrameAndTypeByte(const QuicAckFrame& frame,
                     << ack_block_count << " to " << appended_ack_blocks;
   }
 
-  if (type == IETF_ACK_ECN || type == IETF_MC_CHANNEL_ACK_ECN) {
+  if (type == IETF_ACK_ECN || type == IETF_MC_ACK_ECN) {
     // Encode the ECN counts.
     if (!writer->WriteVarInt62(frame.ect_0_count)) {
       set_detailed_error("No room for ect_0_count in ack frame");
@@ -7121,19 +7117,19 @@ bool QuicFramer::ProcessRetireConnectionIdFrame(
 */
 
 // static
-size_t QuicFramer::GetMcChannelAnnounceFrameSize(
-    const QuicMcChannelAnnounceFrame& frame) {
+size_t QuicFramer::GetMcAnnounceFrameSize(
+    const QuicMcAnnounceFrame& frame) {
   size_t ip_len;
   uint64_t type_bytes;
   if (frame.source_ip.IsIPv4() && frame.group_ip.IsIPv4()) {
     ip_len = 4;
-    type_bytes = IETF_MC_CHANNEL_ANNOUNCE_V4;
+    type_bytes = IETF_MC_ANNOUNCE_V4;
   } else if (frame.source_ip.IsIPv6() && frame.group_ip.IsIPv6()) {
     ip_len = 16;
-    type_bytes = IETF_MC_CHANNEL_ANNOUNCE_V6;
+    type_bytes = IETF_MC_ANNOUNCE_V6;
   } else {
     ip_len = 16;
-    type_bytes = IETF_MC_CHANNEL_ANNOUNCE_V6;
+    type_bytes = IETF_MC_ANNOUNCE_V6;
   }
   return QuicDataWriter::GetVarInt62Len(type_bytes) +
          kConnectionIdLengthSize + frame.channel_id.length() +
@@ -7157,8 +7153,8 @@ bool CheckKeyAlgorithmSizeLegality(uint16_t aead_algorithm, uint64_t key_size) {
   return true;
 }
 
-bool QuicFramer::AppendMcChannelAnnounceFrame(
-    const QuicMcChannelAnnounceFrame& frame, QuicDataWriter* writer) {
+bool QuicFramer::AppendMcAnnounceFrame(
+    const QuicMcAnnounceFrame& frame, QuicDataWriter* writer) {
   size_t ip_len;
   uint8_t source_ip_buf[16];
   uint8_t group_ip_buf[16];
@@ -7240,8 +7236,8 @@ bool QuicFramer::AppendMcChannelAnnounceFrame(
   return true;
 }
 
-bool QuicFramer::ProcessMcChannelAnnounceFrame(QuicDataReader* reader,
-    uint64_t frame_type, QuicMcChannelAnnounceFrame* frame) {
+bool QuicFramer::ProcessMcAnnounceFrame(QuicDataReader* reader,
+    uint64_t frame_type, QuicMcAnnounceFrame* frame) {
   if (!reader->ReadLengthPrefixedChannelId(&frame->channel_id)) {
     set_detailed_error("Unable to read multicast channel properties frame channel id.");
     return false;
@@ -7251,10 +7247,10 @@ bool QuicFramer::ProcessMcChannelAnnounceFrame(QuicDataReader* reader,
   uint8_t source_ip_buf[16];
   uint8_t group_ip_buf[16];
   switch (frame_type) {
-    case IETF_MC_CHANNEL_ANNOUNCE_V4:
+    case IETF_MC_ANNOUNCE_V4:
       ip_len = 4;
       break;
-    case IETF_MC_CHANNEL_ANNOUNCE_V6:
+    case IETF_MC_ANNOUNCE_V6:
       ip_len = 16;
       break;
     default:
@@ -7329,22 +7325,18 @@ bool QuicFramer::ProcessMcChannelAnnounceFrame(QuicDataReader* reader,
 }
 
 // static
-size_t QuicFramer::GetMcChannelPropertiesFrameSize(
-    const QuicMcChannelPropertiesFrame& frame) {
-  return QuicDataWriter::GetVarInt62Len(IETF_MC_CHANNEL_PROPERTIES) +
+size_t QuicFramer::GetMcKeyFrameSize(
+    const QuicMcKeyFrame& frame) {
+  return QuicDataWriter::GetVarInt62Len(IETF_MC_KEY) +
          kConnectionIdLengthSize + frame.channel_id.length() +
-         QuicDataWriter::GetVarInt62Len(frame.channel_properties_sn) +
+         QuicDataWriter::GetVarInt62Len(frame.channel_key_sn) +
          QuicDataWriter::GetVarInt62Len(frame.from_packet_number) +
-         QuicDataWriter::GetVarInt62Len(frame.until_packet_number) +
          QuicDataWriter::GetVarInt62Len(frame.key.size()) +
-         frame.key.size() +
-         QuicDataWriter::GetVarInt62Len(frame.max_rate) +
-         QuicDataWriter::GetVarInt62Len(frame.max_idle_time) +
-         QuicDataWriter::GetVarInt62Len(frame.ack_bundle_size);
+         frame.key.size();
 }
 
-bool QuicFramer::AppendMcChannelPropertiesFrame(
-    const QuicMcChannelPropertiesFrame& frame, QuicDataWriter* writer) {
+bool QuicFramer::AppendMcKeyFrame(
+    const QuicMcKeyFrame& frame, QuicDataWriter* writer) {
   /*
   if (!CheckKeyAlgorithmSizeLegality(frame.aead_algorithm, frame.key.size())) {
     set_detailed_error(
@@ -7357,7 +7349,7 @@ bool QuicFramer::AppendMcChannelPropertiesFrame(
     set_detailed_error("Can not write multicast channel properties frame channel id.");
     return false;
   }
-  if (!writer->WriteVarInt62(frame.channel_properties_sn)) {
+  if (!writer->WriteVarInt62(frame.channel_key_sn)) {
     set_detailed_error(
         "Can not write multicast channel properties frame sequence number.");
     return false;
@@ -7365,11 +7357,6 @@ bool QuicFramer::AppendMcChannelPropertiesFrame(
   if (!writer->WriteVarInt62(frame.from_packet_number)) {
     set_detailed_error(
         "Can not write multicast channel properties frame from packet number.");
-    return false;
-  }
-  if (!writer->WriteVarInt62(frame.until_packet_number)) {
-    set_detailed_error(
-        "Can not write multicast channel properties until_packet_number.");
     return false;
   }
   if (!writer->WriteVarInt62(frame.key.size())) {
@@ -7384,32 +7371,17 @@ bool QuicFramer::AppendMcChannelPropertiesFrame(
       return false;
     }
   }
-  if (!writer->WriteVarInt62(frame.max_rate)) {
-    set_detailed_error(
-        "Can not write multicast channel properties max rate.");
-    return false;
-  }
-  if (!writer->WriteVarInt62(frame.max_idle_time)) {
-    set_detailed_error(
-        "Can not write multicast channel properties max idle time.");
-    return false;
-  }
-  if (!writer->WriteVarInt62(frame.ack_bundle_size)) {
-    set_detailed_error(
-        "Can not write multicast channel properties ack bundle size.");
-    return false;
-  }
 
   return true;
 }
 
-bool QuicFramer::ProcessMcChannelPropertiesFrame(QuicDataReader* reader,
-    QuicMcChannelPropertiesFrame* frame) {
+bool QuicFramer::ProcessMcKeyFrame(QuicDataReader* reader,
+    QuicMcKeyFrame* frame) {
   if (!reader->ReadLengthPrefixedChannelId(&frame->channel_id)) {
     set_detailed_error("Unable to read multicast channel properties frame channel id.");
     return false;
   }
-  if (!reader->ReadVarInt62(&frame->channel_properties_sn)) {
+  if (!reader->ReadVarInt62(&frame->channel_key_sn)) {
     set_detailed_error(
         "Unable to read multicast channel properties frame sequence number.");
     return false;
@@ -7417,11 +7389,6 @@ bool QuicFramer::ProcessMcChannelPropertiesFrame(QuicDataReader* reader,
   if (!reader->ReadVarInt62(&frame->from_packet_number)) {
     set_detailed_error(
         "Unable to read multicast channel properties frame from packet number.");
-    return false;
-  }
-  if (!reader->ReadVarInt62(&frame->until_packet_number)) {
-    set_detailed_error(
-        "Unable to read multicast channel properties frame until packet number.");
     return false;
   }
 
@@ -7449,37 +7416,21 @@ bool QuicFramer::ProcessMcChannelPropertiesFrame(QuicDataReader* reader,
     }
   }
 
-  if (!reader->ReadVarInt62(&frame->max_rate)) {
-    set_detailed_error(
-        "Unable to read multicast channel properties frame max rate.");
-    return false;
-  }
-  if (!reader->ReadVarInt62(&frame->max_idle_time)) {
-    set_detailed_error(
-        "Unable to read multicast channel properties frame idle time.");
-    return false;
-  }
-  if (!reader->ReadVarInt62(&frame->ack_bundle_size)) {
-    set_detailed_error(
-        "Unable to read multicast channel properties ack bundle size.");
-    return false;
-  }
-
   return true;
 }
 
 // static
-size_t QuicFramer::GetMcChannelJoinFrameSize(
-    const QuicMcChannelJoinFrame& frame) {
-  return QuicDataWriter::GetVarInt62Len(IETF_MC_CHANNEL_JOIN) +
+size_t QuicFramer::GetMcJoinFrameSize(
+    const QuicMcJoinFrame& frame) {
+  return QuicDataWriter::GetVarInt62Len(IETF_MC_JOIN) +
          kConnectionIdLengthSize + frame.channel_id.length() +
          QuicDataWriter::GetVarInt62Len(frame.limits_sn) +
          QuicDataWriter::GetVarInt62Len(frame.channel_state_sn) +
-         QuicDataWriter::GetVarInt62Len(frame.channel_properties_sn);
+         QuicDataWriter::GetVarInt62Len(frame.channel_key_sn);
 }
 
-bool QuicFramer::AppendMcChannelJoinFrame(
-    const QuicMcChannelJoinFrame& frame, QuicDataWriter* writer) {
+bool QuicFramer::AppendMcJoinFrame(
+    const QuicMcJoinFrame& frame, QuicDataWriter* writer) {
 
   if (!writer->WriteLengthPrefixedChannelId(frame.channel_id)) {
     set_detailed_error("Can not write multicast channel join frame channel id.");
@@ -7498,7 +7449,7 @@ bool QuicFramer::AppendMcChannelJoinFrame(
     return false;
   }
 
-  if (!writer->WriteVarInt62(frame.channel_properties_sn)) {
+  if (!writer->WriteVarInt62(frame.channel_key_sn)) {
     set_detailed_error(
         "Can not write multicast channel join frame channel properties sequence number.");
     return false;
@@ -7506,8 +7457,7 @@ bool QuicFramer::AppendMcChannelJoinFrame(
   return true;
 }
 
-bool QuicFramer::ProcessMcChannelJoinFrame(QuicDataReader* reader,
-                                           QuicMcChannelJoinFrame* frame) {
+bool QuicFramer::ProcessMcJoinFrame(QuicDataReader* reader, QuicMcJoinFrame* frame) {
   if (!reader->ReadLengthPrefixedChannelId(&frame->channel_id)) {
     set_detailed_error("Unable to read multicast channel join frame channel id.");
     return false;
@@ -7525,7 +7475,7 @@ bool QuicFramer::ProcessMcChannelJoinFrame(QuicDataReader* reader,
     return false;
   }
 
-  if (!reader->ReadVarInt62(&frame->channel_properties_sn)) {
+  if (!reader->ReadVarInt62(&frame->channel_key_sn)) {
     set_detailed_error(
         "Unable to read multicast channel join frame channel properties sequence number.");
     return false;
@@ -7534,16 +7484,16 @@ bool QuicFramer::ProcessMcChannelJoinFrame(QuicDataReader* reader,
 }
 
 // static
-size_t QuicFramer::GetMcChannelLeaveFrameSize(
-    const QuicMcChannelLeaveFrame& frame) {
-  return QuicDataWriter::GetVarInt62Len(IETF_MC_CHANNEL_LEAVE) +
+size_t QuicFramer::GetMcLeaveFrameSize(
+    const QuicMcLeaveFrame& frame) {
+  return QuicDataWriter::GetVarInt62Len(IETF_MC_LEAVE) +
          kConnectionIdLengthSize + frame.channel_id.length() +
          QuicDataWriter::GetVarInt62Len(frame.channel_state_sn) +
          QuicDataWriter::GetVarInt62Len(frame.after_packet_number);
 }
 
-bool QuicFramer::AppendMcChannelLeaveFrame(
-    const QuicMcChannelLeaveFrame& frame, QuicDataWriter* writer) {
+bool QuicFramer::AppendMcLeaveFrame(
+    const QuicMcLeaveFrame& frame, QuicDataWriter* writer) {
 
   if (!writer->WriteLengthPrefixedChannelId(frame.channel_id)) {
     set_detailed_error("Can not write multicast channel leave frame channel id.");
@@ -7564,8 +7514,8 @@ bool QuicFramer::AppendMcChannelLeaveFrame(
   return true;
 }
 
-bool QuicFramer::ProcessMcChannelLeaveFrame(QuicDataReader* reader,
-                                            QuicMcChannelLeaveFrame* frame) {
+bool QuicFramer::ProcessMcLeaveFrame(QuicDataReader* reader,
+                                            QuicMcLeaveFrame* frame) {
   if (!reader->ReadLengthPrefixedChannelId(&frame->channel_id)) {
     set_detailed_error("Unable to read multicast channel leave frame channel id.");
     return false;
@@ -7586,14 +7536,14 @@ bool QuicFramer::ProcessMcChannelLeaveFrame(QuicDataReader* reader,
 }
 
 // static
-size_t QuicFramer::GetMcChannelRetireFrameSize(
-    const QuicMcChannelRetireFrame& frame) {
-  return QuicDataWriter::GetVarInt62Len(IETF_MC_CHANNEL_RETIRE) +
+size_t QuicFramer::GetMcRetireFrameSize(
+    const QuicMcRetireFrame& frame) {
+  return QuicDataWriter::GetVarInt62Len(IETF_MC_RETIRE) +
          kConnectionIdLengthSize + frame.channel_id.length();
 }
 
-bool QuicFramer::AppendMcChannelRetireFrame(
-    const QuicMcChannelRetireFrame& frame, QuicDataWriter* writer) {
+bool QuicFramer::AppendMcRetireFrame(
+    const QuicMcRetireFrame& frame, QuicDataWriter* writer) {
 
   if (!writer->WriteLengthPrefixedChannelId(frame.channel_id)) {
     set_detailed_error("Can not write multicast channel retire frame channel id.");
@@ -7602,8 +7552,8 @@ bool QuicFramer::AppendMcChannelRetireFrame(
   return true;
 }
 
-bool QuicFramer::ProcessMcChannelRetireFrame(QuicDataReader* reader,
-                                             QuicMcChannelRetireFrame* frame) {
+bool QuicFramer::ProcessMcRetireFrame(QuicDataReader* reader,
+                                             QuicMcRetireFrame* frame) {
   if (!reader->ReadLengthPrefixedChannelId(&frame->channel_id)) {
     set_detailed_error("Unable to read multicast channel retire frame channel id.");
     return false;
@@ -7612,9 +7562,9 @@ bool QuicFramer::ProcessMcChannelRetireFrame(QuicDataReader* reader,
 }
 
 // static
-size_t QuicFramer::GetMcClientChannelStateFrameSize(
-    const QuicMcClientChannelStateFrame& frame) {
-  return QuicDataWriter::GetVarInt62Len(IETF_MC_CLIENT_CHANNEL_STATE) +
+size_t QuicFramer::GetMcStateFrameSize(
+    const QuicMcStateFrame& frame) {
+  return QuicDataWriter::GetVarInt62Len(IETF_MC_STATE) +
          kConnectionIdLengthSize + frame.channel_id.length() +
          QuicDataWriter::GetVarInt62Len(frame.channel_state_sn) +
          QuicDataWriter::GetVarInt62Len(frame.state) +
@@ -7623,8 +7573,8 @@ size_t QuicFramer::GetMcClientChannelStateFrameSize(
             QuicDataWriter::GetVarInt62Len(frame.reason));
 }
 
-bool QuicFramer::AppendMcClientChannelStateFrame(
-    const QuicMcClientChannelStateFrame& frame, QuicDataWriter* writer) {
+bool QuicFramer::AppendMcStateFrame(
+    const QuicMcStateFrame& frame, QuicDataWriter* writer) {
   if (!writer->WriteLengthPrefixedChannelId(frame.channel_id)) {
     set_detailed_error("Can not write multicast client channel state frame channel id.");
     return false;
@@ -7652,8 +7602,8 @@ bool QuicFramer::AppendMcClientChannelStateFrame(
   return true;
 }
 
-bool QuicFramer::ProcessMcClientChannelStateFrame(
-    QuicDataReader* reader, QuicMcClientChannelStateFrame* frame) {
+bool QuicFramer::ProcessMcStateFrame(
+    QuicDataReader* reader, QuicMcStateFrame* frame) {
   if (!reader->ReadLengthPrefixedChannelId(&frame->channel_id)) {
     set_detailed_error("Unable to read multicast client channel state frame channel id.");
     return false;
@@ -7694,9 +7644,9 @@ bool QuicFramer::ProcessMcClientChannelStateFrame(
 }
 
 // static
-size_t QuicFramer::GetMcClientLimitsFrameSize(
-    const QuicMcClientLimitsFrame& frame) {
-  return QuicDataWriter::GetVarInt62Len(IETF_MC_CLIENT_LIMITS) +
+size_t QuicFramer::GetMcLimitsFrameSize(
+    const QuicMcLimitsFrame& frame) {
+  return QuicDataWriter::GetVarInt62Len(IETF_MC_LIMITS) +
          QuicDataWriter::GetVarInt62Len(frame.client_limits_sn) +
          QuicDataWriter::GetVarInt62Len(frame.capabilities) +
          QuicDataWriter::GetVarInt62Len(frame.max_aggregate_rate) +
@@ -7704,8 +7654,8 @@ size_t QuicFramer::GetMcClientLimitsFrameSize(
          QuicDataWriter::GetVarInt62Len(frame.max_joined);
 }
 
-bool QuicFramer::AppendMcClientLimitsFrame(
-    const QuicMcClientLimitsFrame& frame, QuicDataWriter* writer) {
+bool QuicFramer::AppendMcLimitsFrame(
+    const QuicMcLimitsFrame& frame, QuicDataWriter* writer) {
   if (!writer->WriteVarInt62(frame.client_limits_sn)) {
     set_detailed_error(
         "Can not write multicast client limits sequence number.");
@@ -7738,8 +7688,8 @@ bool QuicFramer::AppendMcClientLimitsFrame(
   return true;
 }
 
-bool QuicFramer::ProcessMcClientLimitsFrame(QuicDataReader* reader,
-                                            QuicMcClientLimitsFrame* frame) {
+bool QuicFramer::ProcessMcLimitsFrame(QuicDataReader* reader,
+                                            QuicMcLimitsFrame* frame) {
   if (!reader->ReadVarInt62(&frame->client_limits_sn)) {
     set_detailed_error(
         "Unable to read multicast client limits sequence number.");

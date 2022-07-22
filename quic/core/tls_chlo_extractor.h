@@ -158,25 +158,25 @@ class QUIC_NO_EXPORT TlsChloExtractor
   bool OnAckFrequencyFrame(const QuicAckFrequencyFrame& /*frame*/) override {
     return true;
   }
-  bool OnMcChannelAnnounceFrame(const QuicMcChannelAnnounceFrame& /*frame*/) override {
+  bool OnMcAnnounceFrame(const QuicMcAnnounceFrame& /*frame*/) override {
     return true;
   }
-  bool OnMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame& /*frame*/) override {
+  bool OnMcKeyFrame(const QuicMcKeyFrame& /*frame*/) override {
     return true;
   }
-  bool OnMcChannelJoinFrame(const QuicMcChannelJoinFrame& /*frame*/) override {
+  bool OnMcJoinFrame(const QuicMcJoinFrame& /*frame*/) override {
     return true;
   }
-  bool OnMcChannelLeaveFrame(const QuicMcChannelLeaveFrame& /*frame*/) override {
+  bool OnMcLeaveFrame(const QuicMcLeaveFrame& /*frame*/) override {
     return true;
   }
-  bool OnMcChannelRetireFrame(const QuicMcChannelRetireFrame& /*frame*/) override {
+  bool OnMcRetireFrame(const QuicMcRetireFrame& /*frame*/) override {
     return true;
   }
-  bool OnMcClientChannelStateFrame(const QuicMcClientChannelStateFrame& /*frame*/) override {
+  bool OnMcStateFrame(const QuicMcStateFrame& /*frame*/) override {
     return true;
   }
-  bool OnMcClientLimitsFrame(const QuicMcClientLimitsFrame& /*frame*/) override {
+  bool OnMcLimitsFrame(const QuicMcLimitsFrame& /*frame*/) override {
     return true;
   }
   void OnPacketComplete() override {}

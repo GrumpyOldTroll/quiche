@@ -28,6 +28,8 @@ class QUIC_EXPORT_PRIVATE QuicPacketReader {
 
   virtual ~QuicPacketReader();
 
+  // TODO: This is the most likely place where we want to hook into, the issue is that only the client itself has access
+  // TODO: and I am not sure how to get there from within the stack
   // Reads a number of packets from the given fd, and then passes them off to
   // the PacketProcessInterface.  Returns true if there may be additional
   // packets available on the socket.

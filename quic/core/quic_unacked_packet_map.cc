@@ -103,15 +103,14 @@ QuicFrameTypeBitfield GetFrameTypeBitfield(QuicFrameType type) {
       return kRetireConnectionIdFrameBitfield;
     case ACK_FREQUENCY_FRAME:
       return kAckFrequencyFrameBitfield;
-    case MC_CHANNEL_ANNOUNCE_FRAME:
-    case MC_CHANNEL_PROPERTIES_FRAME:
-    case MC_CHANNEL_JOIN_FRAME:
-    case MC_CHANNEL_LEAVE_FRAME:
-    case MC_CHANNEL_INTEGRITY_FRAMEX:
-    case MC_PATH_RESPONSE_FRAMEX:
-    case MC_CLIENT_LIMITS_FRAME:
-    case MC_CHANNEL_RETIRE_FRAME:
-    case MC_CLIENT_CHANNEL_STATE_FRAME:
+    case MC_ANNOUNCE_FRAME:
+    case MC_KEY_FRAME:
+    case MC_JOIN_FRAME:
+    case MC_LEAVE_FRAME:
+    case MC_INTEGRITY_FRAMEX:
+    case MC_LIMITS_FRAME:
+    case MC_RETIRE_FRAME:
+    case MC_STATE_FRAME:
       return kOtherBitfield;
     case NUM_FRAME_TYPES:
       QUIC_BUG(quic_bug_10518_1) << "Unexpected frame type";

@@ -221,26 +221,26 @@ class QUIC_EXPORT_PRIVATE QuicFramerVisitorInterface {
   // Called when an AckFrequencyFrame has been parsed.
   virtual bool OnAckFrequencyFrame(const QuicAckFrequencyFrame& frame) = 0;
 
-  // Called when an IETF MC_CHANNEL_ANNOUNCE_v6_FRAME has been parsed.
-  virtual bool OnMcChannelAnnounceFrame(const QuicMcChannelAnnounceFrame& frame) = 0;
+  // Called when an IETF MC_ANNOUNCE_v6_FRAME has been parsed.
+  virtual bool OnMcAnnounceFrame(const QuicMcAnnounceFrame& frame) = 0;
 
-  // Called when an IETF MC_CHANNEL_PROPERTIES_FRAME has been parsed.
-  virtual bool OnMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame& frame) = 0;
+  // Called when an IETF MC_KEY_FRAME has been parsed.
+  virtual bool OnMcKeyFrame(const QuicMcKeyFrame& frame) = 0;
 
-  // Called when an IETF MC_CHANNEL_JOIN_FRAME has been parsed.
-  virtual bool OnMcChannelJoinFrame(const QuicMcChannelJoinFrame& frame) = 0;
+  // Called when an IETF MC_JOIN_FRAME has been parsed.
+  virtual bool OnMcJoinFrame(const QuicMcJoinFrame& frame) = 0;
 
-  // Called when an IETF MC_CHANNEL_LEAVE_FRAME has been parsed.
-  virtual bool OnMcChannelLeaveFrame(const QuicMcChannelLeaveFrame& frame) = 0;
+  // Called when an IETF MC_LEAVE_FRAME has been parsed.
+  virtual bool OnMcLeaveFrame(const QuicMcLeaveFrame& frame) = 0;
 
-  // Called when an IETF MC_CHANNEL_RETIRE_FRAME has been parsed.
-  virtual bool OnMcChannelRetireFrame(const QuicMcChannelRetireFrame& frame) = 0;
+  // Called when an IETF MC_RETIRE_FRAME has been parsed.
+  virtual bool OnMcRetireFrame(const QuicMcRetireFrame& frame) = 0;
 
-  // Called when an IETF MC_CLIENT_CHANNEL_STATE_FRAME has been parsed.
-  virtual bool OnMcClientChannelStateFrame(const QuicMcClientChannelStateFrame& frame) = 0;
+  // Called when an IETF MC_STATE_FRAME has been parsed.
+  virtual bool OnMcStateFrame(const QuicMcStateFrame& frame) = 0;
 
-  // Called when an IETF MC_CLIENT_LIMITS_FRAME has been parsed.
-  virtual bool OnMcClientLimitsFrame(const QuicMcClientLimitsFrame& frame) = 0;
+  // Called when an IETF MC_LIMITS_FRAME has been parsed.
+  virtual bool OnMcLimitsFrame(const QuicMcLimitsFrame& frame) = 0;
 
   // Called when a packet has been completely processed.
   virtual void OnPacketComplete() = 0;
@@ -814,6 +814,7 @@ class QUIC_EXPORT_PRIVATE QuicFramer {
                               uint64_t* full_packet_number,
                               std::vector<char>* associated_data);
 
+  // TODO: We can potentially just use this to process the packets once we received them with multicast
   bool ProcessDataPacket(QuicDataReader* reader,
                          QuicPacketHeader* header,
                          const QuicEncryptedPacket& packet,
@@ -1105,49 +1106,49 @@ class QUIC_EXPORT_PRIVATE QuicFramer {
                            QuicDataWriter* writer);
   bool ProcessNewTokenFrame(QuicDataReader* reader, QuicNewTokenFrame* frame);
 
-  static size_t GetMcChannelAnnounceFrameSize(const QuicMcChannelAnnounceFrame& frame);
-  bool AppendMcChannelAnnounceFrame(const QuicMcChannelAnnounceFrame& frame,
+  static size_t GetMcAnnounceFrameSize(const QuicMcAnnounceFrame& frame);
+  bool AppendMcAnnounceFrame(const QuicMcAnnounceFrame& frame,
                                     QuicDataWriter* writer);
-  bool ProcessMcChannelAnnounceFrame(QuicDataReader* reader, uint64_t frame_type,
-                                     QuicMcChannelAnnounceFrame* frame);
+  bool ProcessMcAnnounceFrame(QuicDataReader* reader, uint64_t frame_type,
+                                     QuicMcAnnounceFrame* frame);
 
-  static size_t GetMcChannelPropertiesFrameSize(const QuicMcChannelPropertiesFrame& frame);
-  bool AppendMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame& frame,
+  static size_t GetMcKeyFrameSize(const QuicMcKeyFrame& frame);
+  bool AppendMcKeyFrame(const QuicMcKeyFrame& frame,
                                       QuicDataWriter* writer);
-  bool ProcessMcChannelPropertiesFrame(QuicDataReader* reader,
-                                       QuicMcChannelPropertiesFrame* frame);
+  bool ProcessMcKeyFrame(QuicDataReader* reader,
+                                       QuicMcKeyFrame* frame);
 
-  static size_t GetMcChannelJoinFrameSize(const QuicMcChannelJoinFrame& frame);
-  bool AppendMcChannelJoinFrame(const QuicMcChannelJoinFrame& frame,
+  static size_t GetMcJoinFrameSize(const QuicMcJoinFrame& frame);
+  bool AppendMcJoinFrame(const QuicMcJoinFrame& frame,
                                 QuicDataWriter* writer);
-  bool ProcessMcChannelJoinFrame(QuicDataReader* reader,
-                                 QuicMcChannelJoinFrame* frame);
+  bool ProcessMcJoinFrame(QuicDataReader* reader,
+                                 QuicMcJoinFrame* frame);
 
-  static size_t GetMcChannelLeaveFrameSize(const QuicMcChannelLeaveFrame& frame);
-  bool AppendMcChannelLeaveFrame(const QuicMcChannelLeaveFrame& frame,
+  static size_t GetMcLeaveFrameSize(const QuicMcLeaveFrame& frame);
+  bool AppendMcLeaveFrame(const QuicMcLeaveFrame& frame,
                                 QuicDataWriter* writer);
-  bool ProcessMcChannelLeaveFrame(QuicDataReader* reader,
-                                  QuicMcChannelLeaveFrame* frame);
+  bool ProcessMcLeaveFrame(QuicDataReader* reader,
+                                  QuicMcLeaveFrame* frame);
 
-  static size_t GetMcChannelRetireFrameSize(const QuicMcChannelRetireFrame& frame);
-  bool AppendMcChannelRetireFrame(const QuicMcChannelRetireFrame& frame,
+  static size_t GetMcRetireFrameSize(const QuicMcRetireFrame& frame);
+  bool AppendMcRetireFrame(const QuicMcRetireFrame& frame,
                                   QuicDataWriter* writer);
-  bool ProcessMcChannelRetireFrame(QuicDataReader* reader,
-                                   QuicMcChannelRetireFrame* frame);
+  bool ProcessMcRetireFrame(QuicDataReader* reader,
+                                   QuicMcRetireFrame* frame);
 
-  static size_t GetMcClientChannelStateFrameSize(const QuicMcClientChannelStateFrame& frame);
+  static size_t GetMcStateFrameSize(const QuicMcStateFrame& frame);
 
-  bool AppendMcClientChannelStateFrame(const QuicMcClientChannelStateFrame& frame,
+  bool AppendMcStateFrame(const QuicMcStateFrame& frame,
                                        QuicDataWriter* writer);
-  bool ProcessMcClientChannelStateFrame(QuicDataReader* reader,
-                                        QuicMcClientChannelStateFrame* frame);
+  bool ProcessMcStateFrame(QuicDataReader* reader,
+                                        QuicMcStateFrame* frame);
 
-  static size_t GetMcClientLimitsFrameSize(const QuicMcClientLimitsFrame& frame);
+  static size_t GetMcLimitsFrameSize(const QuicMcLimitsFrame& frame);
 
-  bool AppendMcClientLimitsFrame(const QuicMcClientLimitsFrame& frame,
+  bool AppendMcLimitsFrame(const QuicMcLimitsFrame& frame,
                                  QuicDataWriter* writer);
-  bool ProcessMcClientLimitsFrame(QuicDataReader* reader,
-                                  QuicMcClientLimitsFrame* frame);
+  bool ProcessMcLimitsFrame(QuicDataReader* reader,
+                                  QuicMcLimitsFrame* frame);
 
   bool RaiseError(QuicErrorCode error);
 

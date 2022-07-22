@@ -1320,7 +1320,7 @@ void QuicSession::OnConfigNegotiated() {
     static bool sent_initial_multicast_ = false;
     if (!sent_initial_multicast_) {
 #if 0
-      QuicMcChannelPropertiesFrame* props = new QuicMcChannelPropertiesFrame(
+      QuicMcKeyFrame* props = new QuicMcKeyFrame(
           ++last_control_frame_id_, 1, QuicChannelId("q",1), 0);
       props->SetSSM(QuicIpAddress::Any6(), QuicIpAddress::Any6(), 200);
       props->SetUntilPacketNumber(14);
@@ -1334,7 +1334,7 @@ void QuicSession::OnConfigNegotiated() {
       props->SetAckBundleSize(50);
       QuicFrame frame(props);
 
-      QuicMcChannelPropertiesFrame* props = new QuicMcChannelPropertiesFrame(
+      QuicMcKeyFrame* props = new QuicMcKeyFrame(
           ++last_control_frame_id_, 1, QuicChannelId("q",1), 0);
       props->SetSSM(QuicIpAddress::Any4(), QuicIpAddress::Any4(), 200);
       props->SetUntilPacketNumber(12);
@@ -1348,38 +1348,38 @@ void QuicSession::OnConfigNegotiated() {
       props->SetAckBundleSize(50);
       QuicFrame frame(props);
 
-      QuicMcChannelPropertiesFrame* props = new QuicMcChannelPropertiesFrame(
+      QuicMcKeyFrame* props = new QuicMcKeyFrame(
           ++last_control_frame_id_, 1, QuicChannelId("q",1), 0);
       props->SetSSM(QuicIpAddress::Any4(), QuicIpAddress::Any4(), 200);
       QuicFrame frame(props);
 
-      QuicFrame frame(new QuicMcChannelRetireFrame(++last_control_frame_id_,
+      QuicFrame frame(new QuicMcRetireFrame(++last_control_frame_id_,
           QuicChannelId("q",1)))
 
-      QuicFrame frame(new QuicMcChannelLeaveFrame(++last_control_frame_id_,
+      QuicFrame frame(new QuicMcLeaveFrame(++last_control_frame_id_,
           1, QuicChannelId("q",1), 0))
 
-      QuicFrame frame(new QuicMcClientLimitsFrame(++last_control_frame_id_,
+      QuicFrame frame(new QuicMcLimitsFrame(++last_control_frame_id_,
           1, 0x7, 12000, 100, 5))
 
-      QuicFrame frame(new QuicMcClientChannelStateFrame(++last_control_frame_id_,
+      QuicFrame frame(new QuicMcStateFrame(++last_control_frame_id_,
           1, QuicChannelId("q",1),
           kQuicClientChannelStateState_Left,
           kQuicClientChannelStateReason_AdministrativeBlock))
 
-      QuicFrame frame(new QuicMcClientChannelStateFrame(++last_control_frame_id_,
+      QuicFrame frame(new QuicMcStateFrame(++last_control_frame_id_,
           1, QuicChannelId("q",1),
           kQuicClientChannelStateState_Join,
           kQuicClientChannelStateReason_AdministrativeBlock))
 
-      QuicFrame frame(new QuicMcChannelJoinFrame(++last_control_frame_id_,
+      QuicFrame frame(new QuicMcJoinFrame(++last_control_frame_id_,
           1, 2, 3, QuicChannelId("q",1)))
 
 
       QuicIpAddress source_ip, group_ip;
       source_ip.FromString("1.2.3.4");
       group_ip.FromString("232.1.1.1");
-      control_frame_manager_.WriteOrBufferMcChannelAnnounce(
+      control_frame_manager_.WriteOrBufferMcAnnounce(
           QuicChannelId("q",1), source_ip, group_ip,
           1200, 17, 1, (uint8_t*)"");
 #endif
@@ -1390,9 +1390,17 @@ void QuicSession::OnConfigNegotiated() {
       // XXXX: testing send of frame at startup  --jake 2022-04
 
       QUIC_LOG(WARNING) << "XXXX sending test frame";
-      control_frame_manager_.WriteOrBufferMcChannelProperties(
-          QuicChannelId("q",1), 14, 72, 78, 1, (uint8_t*)"", 
-          50, 60, 70);
+      QuicIpAddress src;
+      src.FromString("162.250.138.201");
+      QuicIpAddress grp;
+      grp.FromString("232.162.250.139");
+      control_frame_manager_.WriteOrBufferMcAnnounce(
+                QuicChannelId("q",1), src, grp, 90, 1, 1, (uint8_t*)"",
+                1, 1, 50, 60, 70);
+      control_frame_manager_.WriteOrBufferMcKey(
+          QuicChannelId("q",1), 14, 72, 1, (uint8_t*)"");
+      control_frame_manager_.WriteOrBufferMcJoin(QuicChannelId("q",1), 0,0,14);
+      control_frame_manager_.WriteOrBufferMcLeave(QuicChannelId("q",1), 1,0);
       /*
       bool sent = connection()->SendControlFrame(frame);
       if (sent) {
@@ -2017,6 +2025,62 @@ QuicStream* QuicSession::GetOrCreateStream(const QuicStreamId stream_id) {
 
   return CreateIncomingStream(stream_id);
 }
+//TODO: This should just create a channel, if there already is one with same ID it should be an error
+bool QuicSession::CreateChannelIfNotExistant(QuicChannelId channel_id,
+                                             QuicIpAddress source_ip,
+                                             QuicIpAddress group_ip,
+                                             uint16_t port,
+                                             QuicAEADAlgorithmId  header_aead_algorithm,
+                                             const uint8_t* header_key,
+                                             QuicAEADAlgorithmId aead_algorithm,
+                                             QuicHashAlgorithmId hash_algorithm,
+                                             uint64_t max_rate,
+                                             uint64_t max_idle_time,
+                                             uint64_t ack_bundle_size) {
+
+        ChannelMap::iterator it = channel_map_.find(channel_id);
+        if (it != channel_map_.end()) {
+            return false;
+        }
+        channel_map_.insert(std::make_pair(channel_id, std::unique_ptr<QuicChannel>(new QuicChannel(channel_id, source_ip, group_ip, port,
+                                                                                                    header_aead_algorithm, header_key,
+                                                                                                    aead_algorithm, hash_algorithm,
+                                                                                                    max_rate, max_idle_time,
+                                                                                                    ack_bundle_size))));
+        return true;
+}
+
+QuicChannel* QuicSession::GetChannel(QuicChannelId channel_id) {
+    ChannelMap::iterator it = channel_map_.find(channel_id);
+    if (it == channel_map_.end()) {
+        return NULL;
+    }
+    return it->second.get();
+}
+
+bool QuicSession::QueueLeavingChannel(QuicChannelId channel_id, QuicPacketCount after_packet_number) {
+    leave_map_.insert(std::make_pair(channel_id, after_packet_number));
+    return true;
+}
+
+bool QuicSession::QueueRetiringChannel(QuicChannelId channel_id, QuicPacketCount after_packet_number) {
+    retire_map_.insert(std::make_pair(channel_id, after_packet_number));
+    return true;
+}
+
+bool QuicSession::RemoveChannel(QuicChannelId channel_id) {
+    uint8_t erased = channel_map_.erase(channel_id);
+    if (erased == 1) {
+        return true;
+    }
+    return false;
+}
+
+bool QuicSession::SendClientState(QuicChannel* channel, QuicClientChannelStateState state, QuicClientChannelStateReasonConstants reason) {
+    control_frame_manager_.WriteOrBufferMcState(channel->getChannelId(), channel->getStateSn(), state, reason);
+    channel->incrementStateSn();
+    return false;
+}
 
 void QuicSession::StreamDraining(QuicStreamId stream_id, bool unidirectional) {
   QUICHE_DCHECK(stream_map_.contains(stream_id));
@@ -2633,37 +2697,99 @@ bool QuicSession::OnMaxStreamsFrame(const QuicMaxStreamsFrame& frame) {
   return true;
 }
 
-bool QuicSession::OnMcChannelAnnounceFrame(const QuicMcChannelAnnounceFrame& frame) {
+bool QuicSession::OnMcAnnounceFrame(const QuicMcAnnounceFrame& frame) {
+    //TODO: Is this the right way to get the header key? Should header key length be used here or is it already framed correctly?
+    const bool new_channel = CreateChannelIfNotExistant(frame.channel_id, frame.source_ip, frame.group_ip, frame.udp_port,
+                                                        frame.header_aead_algorithm, &frame.header_key[0], frame.aead_algorithm,
+                                                        frame.hash_algorithm, frame.max_rate, frame.max_idle_time,
+                                                        frame.ack_bundle_size);
+
   QUIC_LOG(WARNING) << "XXXX(1.7) Got :" << frame;
-  return true;
+  //TODO: What is proper error action here? Should the connection itself be closed?
+  return new_channel;
 }
 
-bool QuicSession::OnMcChannelPropertiesFrame(const QuicMcChannelPropertiesFrame& frame) {
+bool QuicSession::OnMcKeyFrame(const QuicMcKeyFrame& frame) {
+  QuicChannel* channel = GetChannel(frame.channel_id);
+  if(channel == NULL) {
+      //TODO: Received key for channel that hasnt received an announce frame yet, buffering the key:
+      return false;
+  }
+  bool add_key = channel->addKey(frame.from_packet_number, &frame.key[0]);
+  channel->setChannelPropertiesSn(frame.channel_key_sn);
   QUIC_LOG(WARNING) << "XXXX(1.3) Got :" << frame;
-  return true;
+  return add_key;
 }
 
-bool QuicSession::OnMcChannelJoinFrame(const QuicMcChannelJoinFrame& frame) {
+bool QuicSession::OnMcJoinFrame(const QuicMcJoinFrame& frame) {
+  QuicChannel* channel = GetChannel(frame.channel_id);
+  //TODO: What is proper error action here? Should the connection itself be closed?
+  if(channel == NULL) {
+      SendClientState(channel, QuicClientChannelStateState::kQuicClientChannelStateState_DeclinedJoin,
+                      QuicClientChannelStateReasonConstants::kQuicClientChannelStateReason_ProtocolError);
+      return false;
+  }
+  if(channel->getState() != QuicChannel::unjoined) {
+      SendClientState(channel, QuicClientChannelStateState::kQuicClientChannelStateState_DeclinedJoin,
+                      QuicClientChannelStateReasonConstants::kQuicClientChannelStateReason_ProtocolError);
+      return false;
+  }
+  if(!(channel->getStateSn() == frame.channel_state_sn &&
+       channel->getChannelKeySn() == frame.channel_key_sn &&
+       channel->getClientLimitsSn() == frame.limits_sn)) {
+      SendClientState(channel, QuicClientChannelStateState::kQuicClientChannelStateState_DeclinedJoin,
+                      QuicClientChannelStateReasonConstants::kQuicClientChannelStateReason_ProtocolError);
+      return false;
+  }
+  bool joined = channel->join();
+  if (joined) {
+      SendClientState(channel, QuicClientChannelStateState::kQuicClientChannelStateState_Join,
+                      QuicClientChannelStateReasonConstants::kQuicClientChannelStateReason_Unspecified);
+  }
   QUIC_LOG(WARNING) << "XXXX(1.1) Got :" << frame;
-  return true;
+  return joined;
 }
 
-bool QuicSession::OnMcChannelLeaveFrame(const QuicMcChannelLeaveFrame& frame) {
+bool QuicSession::OnMcLeaveFrame(const QuicMcLeaveFrame& frame) {
+  QuicChannel* channel = GetChannel(frame.channel_id);
+  //TODO: What is proper error action here? Should the connection itself be closed?
+  if(channel == NULL) {
+      return false;
+  }
+  if(channel->getState() != QuicChannel::joined) {
+      return false;
+  }
+  bool left;
+  if (frame.after_packet_number == 0) {
+      left = channel->leave();
+      if (left) {
+          SendClientState(channel, QuicClientChannelStateState::kQuicClientChannelStateState_Left, QuicClientChannelStateReasonConstants::kQuicClientChannelStateReason_ServerRequested);
+      }
+  } else {
+      left = QueueLeavingChannel(frame.channel_id, frame.after_packet_number);
+  }
   QUIC_LOG(WARNING) << "XXXX(1.2) Got :" << frame;
-  return true;
+  return left;
 }
 
-bool QuicSession::OnMcChannelRetireFrame(const QuicMcChannelRetireFrame& frame) {
-  QUIC_LOG(WARNING) << "XXXX(1.4) Got :" << frame;
-  return true;
+bool QuicSession::OnMcRetireFrame(const QuicMcRetireFrame& frame) {
+    /* TODO: Wait for Frame/spec bump
+    if (frame.after_packet_number == 0) {
+        bool retired = RemoveChannel(frame.channel_id);
+    } else {
+        bool retired = QueueRetiringChannel(frame.channel_id, frame.after_packet_number);
+    } */
+    bool retired = RemoveChannel(frame.channel_id);
+    QUIC_LOG(WARNING) << "XXXX(1.4) Got :" << frame;
+    return retired;
 }
 
-bool QuicSession::OnMcClientChannelStateFrame(const QuicMcClientChannelStateFrame& frame) {
+bool QuicSession::OnMcStateFrame(const QuicMcStateFrame& frame) {
   QUIC_LOG(WARNING) << "XXXX(1.5) Got :" << frame;
   return true;
 }
 
-bool QuicSession::OnMcClientLimitsFrame(const QuicMcClientLimitsFrame& frame) {
+bool QuicSession::OnMcLimitsFrame(const QuicMcLimitsFrame& frame) {
   QUIC_LOG(WARNING) << "XXXX(1.6) Got :" << frame;
   return true;
 }
