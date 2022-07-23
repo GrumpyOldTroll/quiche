@@ -305,6 +305,7 @@ class QUIC_EXPORT_PRIVATE QuicFramer {
   static QuicFramer Multicast(Ts... args) {
       QuicFramer framer(&args...);
       framer.is_multicast_ = true;
+      framer.decrypter_level_ = ENCRYPTION_FORWARD_SECURE;
       return framer;
   }
 
@@ -945,14 +946,6 @@ class QUIC_EXPORT_PRIVATE QuicFramer {
                       size_t buffer_length,
                       size_t* decrypted_length,
                       EncryptionLevel* decrypted_level);
-
-  bool DecryptMulticastPayload(size_t udp_packet_length,
-                               absl::string_view encrypted,
-                               absl::string_view associated_data,
-                               const QuicPacketHeader& header,
-                               char* decrypted_buffer,
-                               size_t buffer_length,
-                               size_t* decrypted_length);
 
   // Returns the full packet number from the truncated
   // wire format version and the last seen packet number.

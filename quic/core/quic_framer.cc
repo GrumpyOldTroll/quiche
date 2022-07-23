@@ -4590,8 +4590,8 @@ void QuicFramer::SetDecrypter(EncryptionLevel level,
 void QuicFramer::SetDecrypterForPhase(int key_phase,
                                       std::unique_ptr<QuicDecrypter> decrypter) {
   QUICHE_DCHECK_EQ(is_multicast_, true);
+  QUICHE_DCHECK_EQ(decrypter_level_, ENCRYPTION_FORWARD_SECURE);
   if (key_phase == current_key_phase_bit_) {
-    QUICHE_DCHECK_EQ(decrypter_level_, ENCRYPTION_FORWARD_SECURE);
     decrypter_[decrypter_level_] = std::move(decrypter);
   } else {
     next_decrypter_ = std::move(decrypter);
