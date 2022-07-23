@@ -298,6 +298,16 @@ class QUIC_EXPORT_PRIVATE QuicFramer {
   QuicFramer(const QuicFramer&) = delete;
   QuicFramer& operator=(const QuicFramer&) = delete;
 
+  QuicFramer(QuicFramer&&) = default;
+
+  // Multicast factory relies on the move constructor.
+  template <class... Ts>
+  static QuicFramer Multicast(Ts... args) {
+      QuicFramer framer(&args...);
+      framer.is_multicast_ = true;
+      return framer;
+  }
+
   virtual ~QuicFramer();
 
   // Returns true if |version| is a supported transport version.
@@ -565,6 +575,10 @@ class QUIC_EXPORT_PRIVATE QuicFramer {
   // indicates the encryption level of the new decrypter.
   void SetDecrypter(EncryptionLevel level,
                     std::unique_ptr<QuicDecrypter> decrypter);
+
+  // Sets the decrypter for a specific key phase. Used for multicast.
+  void SetDecrypterForPhase(int key_phase,
+                            std::unique_ptr<QuicDecrypter> decrypter);
 
   // SetAlternativeDecrypter sets a decrypter that may be used to decrypt
   // future packets. |level| indicates the encryption level of the decrypter. If
@@ -1271,11 +1285,6 @@ class QUIC_EXPORT_PRIVATE QuicFramer {
   // generated yet.
   std::unique_ptr<QuicDecrypter> next_decrypter_;
 
-  // Mapping from channel ID to the multicast decrypter associated with the
-  // channel, which handles key selection and management by packet number.
-  absl::flat_hash_map<QuicChannelId, std::unique_ptr<QuicMcDecrypter>,
-      QuicChannelIdHash> mc_decrypters_;
-
   // If this is a framer of a connection, this is the packet number of first
   // sending packet. If this is a framer of a framer of dispatcher, this is the
   // packet number of sent packets (for those which have packet number).
@@ -1329,6 +1338,9 @@ class QUIC_EXPORT_PRIVATE QuicFramer {
   // The type of the IETF frame preceding the frame currently being processed. 0
   // when not processing a frame or only 1 frame has been processed.
   uint64_t previously_received_frame_type_;
+
+  // True iff multicast.
+  bool is_multicast_;
 };
 
 // Look for and parse the error code from the "<quic_error_code>:" text that

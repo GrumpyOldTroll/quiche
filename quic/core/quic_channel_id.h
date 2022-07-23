@@ -10,7 +10,6 @@
 namespace quic {
 
 using QuicChannelId = QuicConnectionId;
-using QuicChannelIdHash = QuicConnectionIdHash;
 
 // Creates a channel id with value 0
 QUIC_EXPORT_PRIVATE QuicChannelId EmptyQuicChannelId();

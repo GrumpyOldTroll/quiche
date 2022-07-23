@@ -427,7 +427,8 @@ QuicFramer::QuicFramer(const ParsedQuicVersionVector& supported_versions,
       peer_ack_delay_exponent_(kDefaultAckDelayExponent),
       local_ack_delay_exponent_(kDefaultAckDelayExponent),
       current_received_frame_type_(0),
-      previously_received_frame_type_(0) {
+      previously_received_frame_type_(0),
+      is_multicast_(false) {
   QUICHE_DCHECK(!supported_versions.empty());
   version_ = supported_versions_[0];
   QUICHE_DCHECK(version_.IsKnown())
@@ -4586,6 +4587,18 @@ void QuicFramer::SetDecrypter(EncryptionLevel level,
   decrypter_level_ = level;
 }
 
+void QuicFramer::SetDecrypterForPhase(int key_phase,
+                                      std::unique_ptr<QuicDecrypter> decrypter) {
+  QUICHE_DCHECK_EQ(is_multicast_, true);
+  if (key_phase == current_key_phase_bit_) {
+    QUICHE_DCHECK_EQ(decrypter_level_, ENCRYPTION_FORWARD_SECURE);
+    decrypter_[decrypter_level_] = std::move(decrypter);
+  } else {
+    next_decrypter_ = std::move(decrypter);
+    previous_decrypter_ = nullptr;
+  }
+}
+
 void QuicFramer::SetAlternativeDecrypter(
     EncryptionLevel level, std::unique_ptr<QuicDecrypter> decrypter,
     bool latch_once_used) {
@@ -4632,11 +4645,17 @@ bool QuicFramer::DoKeyUpdate(KeyUpdateReason reason) {
     // yet.
     next_decrypter_ = visitor_->AdvanceKeysAndCreateCurrentOneRttDecrypter();
   }
-  std::unique_ptr<QuicEncrypter> next_encrypter =
-      visitor_->CreateCurrentOneRttEncrypter();
-  if (!next_decrypter_ || !next_encrypter) {
-    QUIC_BUG(quic_bug_10850_58) << "Failed to create next crypters";
+  if (!next_decrypter_) {
+    QUIC_BUG(quic_bug_10850_58) << "Failed to create next decrypter";
     return false;
+  }
+  std::unique_ptr<QuicEncrypter> next_encrypter = nullptr;
+  if (!is_multicast_) {
+    next_encrypter = visitor_->CreateCurrentOneRttEncrypter();
+    if (!next_encrypter) {
+      QUIC_BUG(quic_bug_10850_58) << "Failed to create next encrypter";
+      return false;
+    }
   }
   key_update_performed_ = true;
   current_key_phase_bit_ = !current_key_phase_bit_;
@@ -5066,7 +5085,30 @@ bool QuicFramer::DecryptPayload(size_t udp_packet_length,
   bool key_phase_parsed = false;
   bool key_phase;
   bool attempt_key_update = false;
-  if (version().KnowsWhichDecrypterToUse()) {
+  if (is_multicast_) {
+    QUICHE_DCHECK_EQ(header.form, IETF_QUIC_SHORT_HEADER_PACKET);
+    QUICHE_DCHECK(version().UsesTls());
+    QUICHE_DCHECK_EQ(level, ENCRYPTION_FORWARD_SECURE);
+    key_phase = (header.type_byte & FLAGS_KEY_PHASE_BIT) != 0;
+    key_phase_parsed = true;
+    QUIC_DVLOG(1) << ENDPOINT << "packet " << header.packet_number
+                  << " received key_phase=" << key_phase
+                  << " current_key_phase_bit_=" << current_key_phase_bit_;
+    if (key_phase == current_key_phase_bit_) {
+      decrypter = decrypter_[level].get();
+    }
+    else {
+      if (next_decrypter_) {
+        decrypter = next_decrypter_.get();
+        attempt_key_update = true;
+      } else if (previous_decrypter_) {
+        decrypter = previous_decrypter_.get();
+      } else {
+        QUIC_BUG(quic_bug_10850_70) << "No decrypter to try for phase " << key_phase;
+        return false;
+      }
+    }
+  } else if (version().KnowsWhichDecrypterToUse()) {
     if (header.form == GOOGLE_QUIC_PACKET) {
       QUIC_BUG(quic_bug_10850_68)
           << "Attempted to decrypt GOOGLE_QUIC_PACKET with a version that "
@@ -5230,37 +5272,6 @@ bool QuicFramer::DecryptPayload(size_t udp_packet_length,
   }
 
   if (!success) {
-    QUIC_DVLOG(1) << ENDPOINT << "DecryptPacket failed for: " << header;
-    return false;
-  }
-
-  return true;
-}
-
-bool QuicFramer::DecryptMulticastPayload(size_t udp_packet_length,
-                                         absl::string_view encrypted,
-                                         absl::string_view associated_data,
-                                         const QuicPacketHeader& header,
-                                         char* decrypted_buffer, size_t buffer_length,
-                                         size_t* decrypted_length) {
-  auto it = mc_decrypters_.find(header.destination_connection_id);
-  if (it == mc_decrypters_.end() || it->second == nullptr) {
-    QUIC_BUG(quic_bug_10850_72)
-        << "Attempting to decrypt multicast packet without decrypter, "
-        << " version:" << version();
-    return false;
-  }
-
-  QuicMcDecrypter* decrypter = it->second.get();
-
-  bool success = decrypter->DecryptPacket(
-      header.packet_number.ToUint64(), associated_data, encrypted,
-      decrypted_buffer, decrypted_length, buffer_length);
-
-  if (success) {
-    visitor_->OnDecryptedPacket(udp_packet_length, ENCRYPTION_FORWARD_SECURE);
-  }
-  else {
     QUIC_DVLOG(1) << ENDPOINT << "DecryptPacket failed for: " << header;
     return false;
   }
