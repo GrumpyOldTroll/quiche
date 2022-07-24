@@ -14,7 +14,6 @@
 #include "absl/container/flat_hash_map.h"
 #include "quic/core/crypto/quic_decrypter.h"
 #include "quic/core/crypto/quic_encrypter.h"
-#include "quic/core/crypto/quic_mc_decrypter.h"
 #include "quic/core/crypto/quic_random.h"
 #include "quic/core/quic_connection_id.h"
 #include "quic/core/quic_channel_id.h"
@@ -632,6 +631,8 @@ class QUIC_EXPORT_PRIVATE QuicFramer {
 
   // Returns the length of the data encrypted into |buffer| if |buffer_len| is
   // long enough, and otherwise 0.
+  // TODO(krose): This is literally used only in tests! That is the thing that
+  // should not be.
   size_t EncryptPayload(EncryptionLevel level,
                         QuicPacketNumber packet_number,
                         const QuicPacket& packet,

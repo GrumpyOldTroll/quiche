@@ -862,7 +862,8 @@ enum class KeyUpdateReason {
   kLocalForInteropRunner = 3,
   kLocalAeadConfidentialityLimit = 4,
   kLocalKeyUpdateLimitOverride = 5,
-  kMaxValue = kLocalKeyUpdateLimitOverride,
+  kLocalMulticastRotation = 6,
+  kMaxValue = kLocalMulticastRotation,
 };
 
 QUIC_EXPORT_PRIVATE std::ostream& operator<<(std::ostream& os,

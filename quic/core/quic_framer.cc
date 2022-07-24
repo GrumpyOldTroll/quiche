@@ -28,7 +28,6 @@
 #include "quic/core/crypto/null_encrypter.h"
 #include "quic/core/crypto/quic_decrypter.h"
 #include "quic/core/crypto/quic_encrypter.h"
-#include "quic/core/crypto/quic_mc_decrypter.h"
 #include "quic/core/crypto/quic_random.h"
 #include "quic/core/frames/quic_ack_frequency_frame.h"
 #include "quic/core/quic_connection_id.h"
@@ -4589,7 +4588,8 @@ void QuicFramer::SetDecrypter(EncryptionLevel level,
 
 void QuicFramer::SetDecrypterForPhase(int key_phase,
                                       std::unique_ptr<QuicDecrypter> decrypter) {
-  QUICHE_DCHECK_EQ(is_multicast_, true);
+  QUICHE_DCHECK(is_multicast_);
+  QUICHE_DCHECK_EQ(perspective_, Perspective::IS_CLIENT);
   QUICHE_DCHECK_EQ(decrypter_level_, ENCRYPTION_FORWARD_SECURE);
   if (key_phase == current_key_phase_bit_) {
     decrypter_[decrypter_level_] = std::move(decrypter);
@@ -4640,31 +4640,52 @@ void QuicFramer::DiscardPreviousOneRttKeys() {
 
 bool QuicFramer::DoKeyUpdate(KeyUpdateReason reason) {
   QUICHE_DCHECK(support_key_update_for_connection_);
-  if (!next_decrypter_) {
-    // If key update is locally initiated, next decrypter might not be created
-    // yet.
-    next_decrypter_ = visitor_->AdvanceKeysAndCreateCurrentOneRttDecrypter();
-  }
-  if (!next_decrypter_) {
-    QUIC_BUG(quic_bug_10850_58) << "Failed to create next decrypter";
-    return false;
-  }
-  std::unique_ptr<QuicEncrypter> next_encrypter = nullptr;
-  if (!is_multicast_) {
-    next_encrypter = visitor_->CreateCurrentOneRttEncrypter();
+  if (is_multicast_) {
+    switch (perspective_) {
+      case Perspective::IS_CLIENT:
+        if (!next_decrypter_) {
+          QUIC_BUG(quic_bug_10850_58) << "DoKeyUpdate for multicast without next_decrypter_";
+          return false;
+        }
+        previous_decrypter_ = std::move(decrypter_[ENCRYPTION_FORWARD_SECURE]);
+        decrypter_[ENCRYPTION_FORWARD_SECURE] = std::move(next_decrypter_);
+        break;
+      case Perspective::IS_SERVER:
+        // New key has already been set; this method is called for bookkeeping
+        // and event notification
+        QUICHE_DCHECK_EQ(reason, KeyUpdateReason::kLocalMulticastRotation);
+        break;
+      default:
+        // lolwut
+        QUIC_BUG(quic_bug_10850_58) << "Unsupported multicast perspective";
+        return false;
+    }
+  } else {
+    if (!next_decrypter_) {
+      // If key update is locally initiated, next decrypter might not be created
+      // yet.
+      next_decrypter_ = visitor_->AdvanceKeysAndCreateCurrentOneRttDecrypter();
+      if (!next_decrypter_) {
+        QUIC_BUG(quic_bug_10850_58) << "Failed to create next decrypter";
+        return false;
+      }
+    }
+    std::unique_ptr<QuicEncrypter> next_encrypter =
+        visitor_->CreateCurrentOneRttEncrypter();
     if (!next_encrypter) {
       QUIC_BUG(quic_bug_10850_58) << "Failed to create next encrypter";
       return false;
     }
+    previous_decrypter_ = std::move(decrypter_[ENCRYPTION_FORWARD_SECURE]);
+    decrypter_[ENCRYPTION_FORWARD_SECURE] = std::move(next_decrypter_);
+    encrypter_[ENCRYPTION_FORWARD_SECURE] = std::move(next_encrypter);
   }
+  // TODO(krose): Nothing ever sets this back to false
   key_update_performed_ = true;
   current_key_phase_bit_ = !current_key_phase_bit_;
   QUIC_DLOG(INFO) << ENDPOINT << "DoKeyUpdate: new current_key_phase_bit_="
                   << current_key_phase_bit_;
   current_key_phase_first_received_packet_number_.Clear();
-  previous_decrypter_ = std::move(decrypter_[ENCRYPTION_FORWARD_SECURE]);
-  decrypter_[ENCRYPTION_FORWARD_SECURE] = std::move(next_decrypter_);
-  encrypter_[ENCRYPTION_FORWARD_SECURE] = std::move(next_encrypter);
   switch (reason) {
     case KeyUpdateReason::kInvalid:
       QUIC_CODE_COUNT(quic_key_update_invalid);
@@ -4683,6 +4704,9 @@ bool QuicFramer::DoKeyUpdate(KeyUpdateReason reason) {
       break;
     case KeyUpdateReason::kLocalKeyUpdateLimitOverride:
       QUIC_CODE_COUNT(quic_key_update_local_limit_override);
+      break;
+    case KeyUpdateReason::kLocalMulticastRotation:
+      QUIC_CODE_COUNT(quic_key_update_local_multicast_rotation);
       break;
   }
   visitor_->OnKeyUpdate(reason);
@@ -4715,6 +4739,10 @@ void QuicFramer::SetEncrypter(EncryptionLevel level,
   QUICHE_DCHECK_LT(level, NUM_ENCRYPTION_LEVELS);
   QUIC_DVLOG(1) << ENDPOINT << "Setting encrypter at level " << level;
   encrypter_[level] = std::move(encrypter);
+  if (is_multicast_) {
+    QUICHE_DCHECK_EQ(level, ENCRYPTION_FORWARD_SECURE);
+    DoKeyUpdate(KeyUpdateReason::kLocalMulticastRotation);
+  }
 }
 
 void QuicFramer::RemoveEncrypter(EncryptionLevel level) {
@@ -5089,6 +5117,7 @@ bool QuicFramer::DecryptPayload(size_t udp_packet_length,
     QUICHE_DCHECK_EQ(header.form, IETF_QUIC_SHORT_HEADER_PACKET);
     QUICHE_DCHECK(version().UsesTls());
     QUICHE_DCHECK_EQ(level, ENCRYPTION_FORWARD_SECURE);
+    QUICHE_DCHECK_EQ(perspective_, Perspective::IS_CLIENT);
     key_phase = (header.type_byte & FLAGS_KEY_PHASE_BIT) != 0;
     key_phase_parsed = true;
     QUIC_DVLOG(1) << ENDPOINT << "packet " << header.packet_number
