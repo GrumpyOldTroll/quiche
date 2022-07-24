@@ -1334,7 +1334,7 @@ class QUIC_EXPORT_PRIVATE QuicFramer {
   uint64_t previously_received_frame_type_;
 
   // True iff multicast.
-  bool is_multicast_;
+  bool is_multicast_ = false;
 };
 
 // Look for and parse the error code from the "<quic_error_code>:" text that

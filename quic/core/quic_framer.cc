@@ -426,8 +426,7 @@ QuicFramer::QuicFramer(const ParsedQuicVersionVector& supported_versions,
       peer_ack_delay_exponent_(kDefaultAckDelayExponent),
       local_ack_delay_exponent_(kDefaultAckDelayExponent),
       current_received_frame_type_(0),
-      previously_received_frame_type_(0),
-      is_multicast_(false) {
+      previously_received_frame_type_(0) {
   QUICHE_DCHECK(!supported_versions.empty());
   version_ = supported_versions_[0];
   QUICHE_DCHECK(version_.IsKnown())
@@ -4651,8 +4650,8 @@ bool QuicFramer::DoKeyUpdate(KeyUpdateReason reason) {
         decrypter_[ENCRYPTION_FORWARD_SECURE] = std::move(next_decrypter_);
         break;
       case Perspective::IS_SERVER:
-        // New key has already been set; this method is called for bookkeeping
-        // and event notification
+        // New encrypter has already been set; this method is called for
+        // bookkeeping and event notification
         QUICHE_DCHECK_EQ(reason, KeyUpdateReason::kLocalMulticastRotation);
         break;
       default:
