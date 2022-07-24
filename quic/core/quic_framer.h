@@ -301,7 +301,7 @@ class QUIC_EXPORT_PRIVATE QuicFramer {
 
   // Multicast factory relies on the move constructor.
   template <class... Ts>
-  static QuicFramer Multicast(Ts... args) {
+  static QuicFramer CreateMulticast(Ts... args) {
       QuicFramer framer(&args...);
       framer.is_multicast_ = true;
       framer.decrypter_level_ = ENCRYPTION_FORWARD_SECURE;
