@@ -114,6 +114,17 @@ class QUIC_EXPORT_PRIVATE WebTransportVisitor {
   virtual void OnCanCreateNewOutgoingUnidirectionalStream() = 0;
 };
 
+class WebTransportSession;
+class QUIC_EXPORT_PRIVATE WebTransportVisitorFactory {
+ public:
+  virtual ~WebTransportVisitorFactory() {}
+  // return a stable owned string for GetPath(), it's used as a map key
+  virtual absl::string_view GetPath() const = 0;
+  virtual std::unique_ptr<WebTransportVisitor> Create(
+      const spdy::Http2HeaderBlock& request_headers,
+      WebTransportSession* session) = 0;
+};
+
 // An abstract interface for a WebTransport session.
 class QUIC_EXPORT_PRIVATE WebTransportSession {
  public:

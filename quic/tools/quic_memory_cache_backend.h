@@ -162,6 +162,11 @@ class QuicMemoryCacheBackend : public QuicSimpleServerBackend {
       WebTransportSession* session) override;
   bool SupportsWebTransport() override { return enable_webtransport_; }
 
+  bool AddWebTransportVisitorFactory(
+      std::unique_ptr<WebTransportVisitorFactory> factory) override;
+  bool RemoveWebTransportVisitorFactory(
+      absl::string_view path) override;
+
  private:
   void AddResponseImpl(absl::string_view host,
                        absl::string_view path,
@@ -203,6 +208,9 @@ class QuicMemoryCacheBackend : public QuicSimpleServerBackend {
   // TODO(b/171463363): Remove.
   std::multimap<std::string, QuicBackendResponse::ServerPushInfo>
       server_push_resources_ QUIC_GUARDED_BY(response_mutex_);
+
+  std::map<absl::string_view, std::unique_ptr<WebTransportVisitorFactory> >
+      webtransport_visitor_factory_ QUIC_GUARDED_BY(response_mutex_);
 
   // Protects against concurrent access from test threads setting responses, and
   // server threads accessing those responses.

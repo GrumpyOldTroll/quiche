@@ -5,9 +5,11 @@
 #ifndef QUICHE_QUIC_TOOLS_QUIC_PUSHER_H_
 #define QUICHE_QUIC_TOOLS_QUIC_PUSHER_H_
 
+#include "quic/platform/api/quic_logging.h"
+#include "absl/strings/string_view.h"
+
 namespace quic {
 
-// A generator of server-initiated unidirectional data
 class QuicPusher {
  public:
   virtual ~QuicPusher() = default;

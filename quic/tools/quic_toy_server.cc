@@ -101,7 +101,7 @@ int QuicToyServer::Start() {
   auto backend = backend_factory_->CreateBackend();
   auto server = server_factory_->CreateServer(
       backend.get(), std::move(proof_source), supported_versions);
-  auto pusher = pusher_factory_->CreatePusher(multicast_upstream, server.get());
+  auto pusher = pusher_factory_->CreatePusher(multicast_upstream, server.get(), backend.get());
   if (!multicast_upstream.empty() && !pusher.get()) {
     return 1;
   }

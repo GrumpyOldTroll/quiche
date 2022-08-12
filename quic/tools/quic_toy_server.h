@@ -6,11 +6,12 @@
 #define QUICHE_QUIC_TOOLS_QUIC_TOY_SERVER_H_
 
 #include "quic/core/crypto/proof_source.h"
-#include "quic/tools/quic_pusher.h"
 #include "quic/tools/quic_simple_server_backend.h"
 #include "quic/tools/quic_spdy_server_base.h"
 
 namespace quic {
+
+class QuicPusher;
 
 // A binary wrapper for QuicServer.  It listens forever on --port
 // (default 6121) until it's killed or ctrl-cd to death.
@@ -51,7 +52,8 @@ class QuicToyServer {
 
     virtual std::unique_ptr<quic::QuicPusher> CreatePusher(
         std::string multicast_upstream,
-        QuicSpdyServerBase* server) = 0;
+        QuicSpdyServerBase* server,
+        QuicSimpleServerBackend* backend) = 0;
   };
 
   // Constructs a new toy server that will use |server_factory| to create the

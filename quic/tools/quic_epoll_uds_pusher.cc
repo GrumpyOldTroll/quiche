@@ -2,8 +2,6 @@
 // Use of this source code is governed by a BSD-style license that can be
 // found in the LICENSE file.
 
-#include "quic/tools/quic_epoll_uds_pusher.h"
-
 #include <errno.h>
 #include <features.h>
 #include <sys/fcntl.h>
@@ -20,8 +18,11 @@
 #include <utility>
 #include <sstream>
 
+#include "quic/tools/quic_epoll_uds_pusher.h"
+#include "quic/tools/web_transport_push_visitor_factory.h"
 #include "quic/platform/api/quic_logging.h"
 #include "quic/tools/quic_server.h"
+#include "quic/tools/quic_pusher_alternatives.h"
 
 namespace {
 
@@ -63,11 +64,13 @@ namespace quic {
 
 QuicEpollUDSPusher::QuicEpollUDSPusher(std::string socket_path,
                                        QuicEpollServer* epoll_server,
-                                       QuicSpdyServerBase* server)
+                                       QuicSpdyServerBase* server,
+                                       QuicSimpleServerBackend* backend)
     : path_(socket_path),
       topcmd_fd_(-1),
       epoll_server_(epoll_server),
       server_(server),
+      backend_(backend),
       event_count_(0),
       max_incoming_connections_(30) {
         std::cout << "UDS Pusher" << std::endl;
@@ -431,24 +434,142 @@ bool QuicEpollUDSPusher::parseCommand(
   return read_success;
 }
 
+static std::string to_safe_path(std::string input) {
+  // TODO: ensure the path is safe. This call chain comes only from
+  // a process that can open a local unix socket at the root of the
+  // multicast fanout, but still should ensure good pathing here...
+  return input;
+}
+
 void QuicEpollUDSPusher::RunCommand(const quic::PushCmd& cmd,
     quic::PushCmd_Response& resp)
 {
   switch (cmd.Command_case()) {
     case quic::PushCmd::kMakePool: {
       QUIC_LOG(WARNING) << "makepool id:" << cmd.make_pool().pool_id();
+      std::ostringstream tok_str;
+      tok_str << "/wt/push/" << to_safe_path(cmd.make_pool().pool_id());
+      std::string pool_tok = tok_str.str();
+      std::shared_ptr<QuicPusherPool> pool;
+      switch (cmd.make_pool().type()) {
+        case MakePool_Type_Alternatives: {
+          // TODO: hook up a class that manages the channel join set for
+          // clients watching this pool via sticking them on the highest
+          // ordinal single channel from this pool that they can
+          // comfortably support without high loss or exceeding their
+          // max rate.
+          pool = std::make_shared<QuicPusherAlternatives>();
+          break;
+        }
+        // TODO: OrderedLayers
+        // TODO: ArbitraryLayers
+        default: {
+          return;
+        }
+      }
+      if (!pool) {
+        resp.set_success(false);
+        std::ostringstream str;
+        str << "failed to make pool type " << (int)cmd.make_pool().type() << " id " << cmd.make_pool().pool_id();
+        resp.set_error_message(str.str());
+        return;
+      }
+      switch (cmd.make_pool().application()) {
+        case MakePool_Application_WebTransport: {
+          break;
+        }
+        // TODO: Raw
+        // TODO: ServerPush
+        default: {
+          resp.set_success(false);
+          std::ostringstream str;
+          str << "unimplemented application type: " << (int)cmd.make_pool().application();
+          resp.set_error_message(str.str());
+          return;
+        }
+      }
+      bool added = backend_->AddWebTransportVisitorFactory(
+          std::make_unique<PushWebTransportVisitorFactory>(
+          pool, pool_tok));
+      if (!added) {
+        resp.set_success(false);
+        resp.set_error_message("visitor factory creation failed");
+        return;
+      }
+      auto result = pushers_.emplace(pool_tok, pool);
+      QUICHE_DCHECK(result.second) << "internal error: newly added pool " << pool_tok << " has a duplicate id";
+
+      resp.mutable_make_pool_resp()->set_pool_token(pool_tok);
       resp.set_success(true);
-      resp.mutable_make_pool_resp()->set_pool_token("hi2");
       break;
     }
     case quic::PushCmd::kMakeChannel: {
       QUIC_LOG(WARNING) << "makechannel pool_token:" << cmd.make_channel().pool_token();
+      auto it = pushers_.find(cmd.make_channel().pool_token());
+      if (it == pushers_.end()) {
+        resp.set_success(false);
+        std::ostringstream errmsg;
+        errmsg << "no such pool token " << cmd.make_channel().pool_token();
+        resp.set_error_message(errmsg.str());
+        return;
+      }
+      QuicPusherPool* pool = it->second.get();
+      QuicPusherChannel* channel = pool->MakeChannel(cmd.make_channel().pool_ordinal());
+      if (!channel) {
+        resp.set_success(false);
+        std::ostringstream errmsg;
+        errmsg << "failed to make channel for " << cmd.make_channel().pool_token();
+        resp.set_error_message(errmsg.str());
+        return;
+      }
+
+      std::ostringstream toks;
+      toks << cmd.make_channel().pool_token() << "/" << channel->GetTok();
       resp.set_success(true);
-      resp.mutable_make_channel_resp()->set_channel_token("hi3");
+      resp.mutable_make_channel_resp()->set_channel_token(
+          toks.str());
       break;
     }
     case quic::PushCmd::kFullStream: {
       QUIC_LOG(WARNING) << "fullstream data size:" << cmd.full_stream().data().size();
+      const std::string& channel_tok(cmd.full_stream().channel_token());
+      auto slash = channel_tok.rfind('/');
+      if (slash == channel_tok.npos) {
+        resp.set_success(false);
+        std::ostringstream errmsg;
+        errmsg << "failed to separate channel token " << cmd.full_stream().channel_token() << " into pool tok and ordinal";
+        resp.set_error_message(errmsg.str());
+        return;
+      }
+      std::string pool_tok = channel_tok.substr(0, slash);
+      auto pool_it = pushers_.find(pool_tok);
+      if (pool_it == pushers_.end()) {
+        resp.set_success(false);
+        std::ostringstream errmsg;
+        errmsg << "could not find pool " << pool_tok;
+        resp.set_error_message(errmsg.str());
+        return;
+      }
+      QuicPusherPool* pool = pool_it->second.get();
+      absl::string_view atok(channel_tok);
+      absl::string_view chan_part = atok.substr(slash+1);
+      QuicPusherChannel* channel = pool->FindChannel(chan_part);
+      if (!channel) {
+        resp.set_success(false);
+        std::ostringstream errmsg;
+        errmsg << "could not find channel " << chan_part << " in pool " << pool_tok;
+        resp.set_error_message(errmsg.str());
+        return;
+      }
+
+      auto data = std::make_shared<std::string>(cmd.full_stream().data());
+      if (!channel->SendData(data)) {
+        resp.set_success(false);
+        std::ostringstream errmsg;
+        errmsg << "could not send " << cmd.full_stream().data().size() << " bytes ffor " << channel_tok;
+        resp.set_error_message(errmsg.str());
+        return;
+      }
       resp.set_success(true);
       break;
     }

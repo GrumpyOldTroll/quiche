@@ -12,10 +12,12 @@
 
 #include "quic/platform/api/quic_epoll.h"
 #include "quic/tools/quic_pusher.h"
+#include "quic/tools/quic_pusher_pool.h"
 #include "quic/tools/quic_push_commands.h"
 #include "quic/tools/quic_push_utils.h"
 #include "quic/tools/quic_epoll_uds_client.h"
 #include "quic/tools/quic_spdy_server_base.h"
+#include "quic/tools/quic_simple_server_backend.h"
 #include "quic/core/proto/push_server_proto.h"
 
 namespace quic {
@@ -32,7 +34,8 @@ class QuicEpollUDSPusher : public QuicPusher,
   QuicEpollUDSPusher(
       std::string path_base,
       QuicEpollServer* epoll_server,
-      QuicSpdyServerBase* server);
+      QuicSpdyServerBase* server,
+      QuicSimpleServerBackend* backend);
 
   ~QuicEpollUDSPusher() override;
 
@@ -69,10 +72,12 @@ class QuicEpollUDSPusher : public QuicPusher,
   
   std::vector<std::unique_ptr<QuicPushCommandBase> > commands_;
   std::unordered_map<FDType, Client*> clients_; 
+  std::unordered_map<std::string, std::shared_ptr<QuicPusherPool> > pushers_;
 
   int topcmd_fd_;
   QuicEpollServer* epoll_server_;  // unowned.
   QuicSpdyServerBase* server_;  // unowned.
+  QuicSimpleServerBackend* backend_;  // unowned.
   unsigned int event_count_;
   int max_incoming_connections_;
 };
