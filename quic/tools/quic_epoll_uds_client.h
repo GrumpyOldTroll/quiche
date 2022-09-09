@@ -11,6 +11,8 @@ class QuicEpollUDSClient
         BufferType buffer;
         FDType fd = 0;
         size_t filled_len = 0;
+        BufferType response_buf;
+        size_t response_len = 0;
 
     public:
         QuicEpollUDSClient() = default;

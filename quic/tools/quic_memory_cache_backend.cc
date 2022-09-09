@@ -149,6 +149,7 @@ const QuicBackendResponse* QuicMemoryCacheBackend::GetResponse(
     absl::string_view host, absl::string_view path) const {
   QuicWriterMutexLock lock(&response_mutex_);
 
+  QUIC_LOG(WARNING) << "Added response with key " << GetKey(host, path) << " (from host=" << host << ", path=" << path << ")";
   auto it = responses_.find(GetKey(host, path));
   if (it == responses_.end()) {
     uint64_t ignored = 0;
@@ -367,6 +368,32 @@ std::list<ServerPushInfo> QuicMemoryCacheBackend::GetServerPushResources(
   return resources;
 }
 
+bool QuicMemoryCacheBackend::AddWebTransportVisitorFactory(
+    std::unique_ptr<WebTransportVisitorFactory> factory) {
+  if (!factory) {
+    return false;
+  }
+  QuicWriterMutexLock lock(&response_mutex_);
+  absl::string_view path = factory->GetPath();
+  auto wt_it = webtransport_visitor_factory_.find(path);
+  if (wt_it != webtransport_visitor_factory_.end()) {
+    return false;
+  }
+  auto result = webtransport_visitor_factory_.emplace(path,
+      std::move(factory));
+  return result.second;
+}
+bool QuicMemoryCacheBackend::RemoveWebTransportVisitorFactory(
+    absl::string_view path) {
+  QuicWriterMutexLock lock(&response_mutex_);
+  auto wt_it = webtransport_visitor_factory_.find(path);
+  if (wt_it == webtransport_visitor_factory_.end()) {
+    return false;
+  }
+  webtransport_visitor_factory_.erase(wt_it);
+  return true;
+}
+
 QuicMemoryCacheBackend::WebTransportResponse
 QuicMemoryCacheBackend::ProcessWebTransportRequest(
     const spdy::Http2HeaderBlock& request_headers,
@@ -383,6 +410,7 @@ QuicMemoryCacheBackend::ProcessWebTransportRequest(
     return response;
   }
   absl::string_view path = path_it->second;
+
   if (path == "/echo") {
     WebTransportResponse response;
     response.response_headers[":status"] = "200";
@@ -391,8 +419,20 @@ QuicMemoryCacheBackend::ProcessWebTransportRequest(
     return response;
   }
 
+  QuicReaderMutexLock lock(&response_mutex_);
+  auto wt_it = webtransport_visitor_factory_.find(path);
+  if (wt_it == webtransport_visitor_factory_.end()) {
+    WebTransportResponse response;
+    response.response_headers[":status"] = "404";
+    return response;
+  }
   WebTransportResponse response;
-  response.response_headers[":status"] = "404";
+  response.visitor = wt_it->second->Create(request_headers, session);
+  if (response.visitor) {
+    response.response_headers[":status"] = "200";
+  } else {
+    response.response_headers[":status"] = "404";
+  }
   return response;
 }
 
@@ -426,6 +466,7 @@ void QuicMemoryCacheBackend::AddResponseImpl(
   for (auto& headers : early_hints) {
     new_response->AddEarlyHints(headers);
   }
+  QUIC_LOG(WARNING) << "Added response with key " << key;
   QUIC_DVLOG(1) << "Add response with key " << key;
   responses_[key] = std::move(new_response);
 }

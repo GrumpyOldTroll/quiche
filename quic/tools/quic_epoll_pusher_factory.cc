@@ -18,7 +18,8 @@ QuicEpollPusherFactory::QuicEpollPusherFactory(
 
 std::unique_ptr<quic::QuicPusher> QuicEpollPusherFactory::CreatePusher(
     std::string multicast_upstream,
-    QuicSpdyServerBase* server) {
+    QuicSpdyServerBase* server,
+    QuicSimpleServerBackend* backend) {
   if (multicast_upstream.empty()) {
     return std::unique_ptr<QuicPusher>();
   }
@@ -26,7 +27,8 @@ std::unique_ptr<quic::QuicPusher> QuicEpollPusherFactory::CreatePusher(
     auto pusher = std::make_unique<QuicEpollUDSPusher>(
         multicast_upstream.substr(5),
         epoll_server_,
-        server);
+        server,
+        backend);
     if (!pusher->Initialize()) {
       return std::unique_ptr<QuicPusher>();
     }

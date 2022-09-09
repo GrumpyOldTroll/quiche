@@ -8,50 +8,125 @@ option optimize_for = LITE_RUNTIME;
 
 package quic;
 
-import "quic/core/proto/push_pool.proto";
+message MakePool {
+  string pool_id = 1;
 
-message PushServer { 
+  enum Type { // TODO: Choose the default value as 0, for now 'Reserved'
+      Reserved_Type = 0;
+      Alternatives = 1;
+      OrderedLayers = 2;
+      ArbitraryLayers = 3;
+  }
+  Type type = 2;
 
-    oneof Command {
-        PushPool pool = 1;
-        PushServerMakePool make_pool = 2;
-        PushServerActivatePool activate_pool = 3;
-        PushServerDeactivatePool deactivate_pool = 4;
-    }
+  enum Application {
+      Reserved_App = 0;
+      Raw = 1;
+      WebTransport = 2;
+      // ServerPush = 3;
+  }
+  Application application = 3;
 
-    message Response {
-        bool success = 1;
-        string error_message = 2;
-
-        oneof CommandResponse {
-            PushPool.Response pool = 3;
-            PushServerMakePool.Response make_pool = 4;
-        }
-    }
-    
+  message Response {
+    string pool_token = 1;
+  }
 }
 
-message PushServerActivatePool {
-    int32 pool_id = 14;
+message ListPools {
+  message PoolDesc {
+    string pool_token = 1;
+    MakePool pool = 2;
+    string unicast_token = 3;
+  }
+  message Response {
+    repeated PoolDesc pools = 1;
+  }
 }
 
-message PushServerDeactivatePool {
-    uint32 pool_id = 1;
+message DestroyPool {
+  string pool_token = 1;
 }
 
-message PushServerMakePool {
+message MakeChannel {
+  string pool_token = 1;
+  uint32 pool_ordinal = 2;
+  string source_address = 3;
+  string group_address = 4;
+  uint32 port = 5;
+  uint64 max_rate = 6;
+  uint64 max_ack_delay = 7;
 
-    enum Type { // TODO: Choose the default value as 0, for now 'Reserved'
-        Reserved = 0;
-        Alternatives = 1;
-        OrderedLayers = 2;
-        ArbitraryLayers = 3;
+  message Response {
+    string channel_token = 1;
+  }
+}
+
+message RotateKey {
+  // keys will be rotated automatically, but you can push an extra one
+  string channel_token = 1;
+}
+
+message DestroyChannel {
+  string channel_token = 1;
+}
+
+message FullStream {
+  string channel_token = 1;
+  bytes data = 2;
+}
+
+message StartPartialStream {
+  string channel_token = 1;
+  bytes data = 2;
+
+  message Response {
+    string stream_token = 1;
+  }
+}
+
+message ContinuePartialStream {
+  string stream_token = 1;
+  string channel_token = 2;
+  bool finish = 3;
+  bytes data = 4;
+}
+
+message MakeUnicast {
+  // optional; by default the slowest channel will be unicast for
+  // non-multicastt clients with alternate.
+  // TBD: would it be useful to allow multiples of these, e.g.
+  // if you want ABR but only multicast for the top rate (or
+  // top 2, etc.)?  Is it practical if we just add an ordinal?
+  string pool_token = 1;
+
+  message Response {
+    string channel_token = 1;
+  }
+}
+
+message PushCmd { 
+  oneof Command {
+    ListPools list_pools = 1;
+    MakePool make_pool = 2;
+    DestroyPool destroy_pool = 3;
+    MakeChannel make_channel = 4;
+    RotateKey rotate_key = 5;
+    DestroyChannel destroy_channel = 6;
+    MakeUnicast make_unicast = 7;
+    FullStream full_stream = 8;
+    StartPartialStream start_partial_stream = 9;
+    ContinuePartialStream continue_partial_stream = 10;
+  }
+
+  message Response {
+    bool success = 1;
+    string error_message = 2;
+
+    oneof CmdResponse {
+      MakePool.Response make_pool_resp = 3;
+      MakeChannel.Response make_channel_resp = 4;
+      MakeUnicast.Response make_unicast_resp = 5;
+      StartPartialStream.Response start_partial_resp = 6;
     }
-
-    Type type = 1;
-
-    message Response 
-    {
-        uint32 pool_id = 1;
-    }
+  }
 }

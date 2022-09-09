@@ -10,17 +10,14 @@
 #include <memory>
 #include <unordered_map>
 
-#include <unistd.h>
-#include <sys/socket.h>
-#include <sys/un.h>
-#include <sys/types.h>
-
 #include "quic/platform/api/quic_epoll.h"
 #include "quic/tools/quic_pusher.h"
+#include "quic/tools/quic_pusher_pool.h"
 #include "quic/tools/quic_push_commands.h"
 #include "quic/tools/quic_push_utils.h"
 #include "quic/tools/quic_epoll_uds_client.h"
 #include "quic/tools/quic_spdy_server_base.h"
+#include "quic/tools/quic_simple_server_backend.h"
 #include "quic/core/proto/push_server_proto.h"
 
 namespace quic {
@@ -37,13 +34,16 @@ class QuicEpollUDSPusher : public QuicPusher,
   QuicEpollUDSPusher(
       std::string path_base,
       QuicEpollServer* epoll_server,
-      QuicSpdyServerBase* server);
+      QuicSpdyServerBase* server,
+      QuicSimpleServerBackend* backend);
 
   ~QuicEpollUDSPusher() override;
 
   bool Initialize();
   void Shutdown();
-  bool RunBufferedCommands();
+  bool RunBufferedCommands(Client& client);
+
+  bool CloseClient(Client& client);
 
   // From EpollCallbackInterface
   void OnRegistration(QuicEpollServer* eps, FDType fd,
@@ -54,31 +54,30 @@ class QuicEpollUDSPusher : public QuicPusher,
   void OnShutdown(QuicEpollServer* eps, FDType fd) override;
 
   void handleConnection();
-  void handleComingData();
+  void handleComingData(Client& client);
   std::string Name() const override { return "QuicEpollUDSPusher"; }
 
   bool parseCommand(
-    quic::PushServer& input_cmd,
+    Client& client,
+    quic::PushCmd& input_cmd,
     size_t size,
     const uint8_t* buf,
     ssize_t &consumed,
     QuicPushParseErrorCode &err) ;
 
-  void RunCommand(const quic::PushServer& cmd);
+  void RunCommand(const quic::PushCmd& cmd, quic::PushCmd_Response& response);
 
  private:
-  std::string path_base_;
-  std::string socket_path_;
-  std::string top_path_;
+  std::string path_;
   
   std::vector<std::unique_ptr<QuicPushCommandBase> > commands_;
   std::unordered_map<FDType, Client*> clients_; 
-
-  Client* current_client = 0;
+  std::unordered_map<std::string, std::shared_ptr<QuicPusherPool> > pushers_;
 
   int topcmd_fd_;
   QuicEpollServer* epoll_server_;  // unowned.
   QuicSpdyServerBase* server_;  // unowned.
+  QuicSimpleServerBackend* backend_;  // unowned.
   unsigned int event_count_;
   int max_incoming_connections_;
 };

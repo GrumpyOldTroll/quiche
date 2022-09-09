@@ -69,6 +69,15 @@ class QuicSimpleServerBackend {
   virtual bool SupportsWebTransport() { return false; }
   virtual bool UsesDatagramContexts() { return false; }
   virtual bool SupportsExtendedConnect() { return true; }
+
+  virtual bool AddWebTransportVisitorFactory(
+      std::unique_ptr<WebTransportVisitorFactory> factory) {
+    return false;
+  }
+  virtual bool RemoveWebTransportVisitorFactory(
+      absl::string_view path) {
+    return false;
+  }
 };
 
 }  // namespace quic
