@@ -1,0 +1,4 @@
+quic/tools/proto3/build/*.pb.cc
+quic/tools/proto3/build/*.pb.h
+quic/tools/proto3/a.out
+quic/tools/proto3/mybin
